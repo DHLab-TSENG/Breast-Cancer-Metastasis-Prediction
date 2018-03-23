@@ -1,0 +1,195 @@
+---
+title: "Predicting Breast Cancer Metastasis Using Clinicopathological Data and Machine Learning Technologies"
+author: Yi-Ju Tseng, Chuang-En Huang, Po-Yin Lai, Yu-Chen Sun, Chiao-Ni Wen, Hsin-Yao Wang, and Jang-Jih Lu
+institute: "Chang Gung University"
+output: github_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+options(scipen = 999)
+```
+## Set environment
+### Load all librarys
+```{r library, warning=F,message=F}
+library(data.table)
+library(ggplot2)
+library(lubridate)
+library(dplyr)
+library(tidyr)
+library(ROCR)
+library(caret)
+library(tableone)
+```
+### Load all functions
+```{r warning=F,message=F}
+# The ModelFunction.R can be download from GitHub
+source('ModelFunction.R')
+```
+
+## Data load and pre-process
+### Load breast cancer data for model development
+
+```{r data.load, warning=F}
+TimeIndepData<-readRDS('TimeIndepData.rds')
+str(select(TimeIndepData,-ID))
+TimeVariedData<-readRDS('TimeVariedData.rds')
+str(select(TimeVariedData,-ID))
+```
+
+### T stage code conversion
+
+```{r code.conversion,warning=F}
+TimeIndepData[pTi %in% c('4a','4b','4c','4d'),pTi:='8']
+TimeIndepData[pTi=='3',pTi:='7']
+TimeIndepData[pTi=='2',pTi:='6']
+TimeIndepData[pTi=='1c',pTi:='5']
+TimeIndepData[pTi=='1b',pTi:='4']
+TimeIndepData[pTi=='1a',pTi:='3']
+TimeIndepData[pTi=='1micro',pTi:='2']
+TimeIndepData[pTi=='is',pTi:='1']
+TimeIndepData[pTi=='x',pTi:=NA]
+```
+
+### Process categorical variables
+```{r factor}
+cols <- c("pTi", "pNi", "pMi", "Tissue.ER", "Tissue.PR", "Tissue.HER2")
+TimeIndepData[, c(cols) := lapply(.SD, as.factor), .SDcols= cols]
+```
+
+## Patient characteristics
+```{r tableone,warning=F}
+LastData <- TimeVariedData[order(ID,LabName,-RCVDAT)][,.SD[c(1)],by=.(ID,LabName)]
+LabWide <- spread(LastData[,.(ID,LabName,LabValue)],key=LabName,value=LabValue)
+IndexDateGap<-LastData[,.(ID,Index_duration)][order(ID,Index_duration)][,.SD[c(1)],by=.(ID)]
+
+LastRecordAfterOP <- inner_join(TimeIndepData,LabWide, by = "ID")%>%
+  inner_join(., IndexDateGap, by='ID') 
+
+vars <- c("OPAge","pTi","pNi","pMi","Tissue.ER","Tissue.PR","Tissue.HER2","CA153","CEA","HER2","Index_duration") 
+cols <- c("pTi", "pNi", "pMi", "Tissue.ER", "Tissue.PR", "Tissue.HER2")
+ALL_tableOne <- CreateTableOne(vars = vars, strata = c("IsRe"),factorVars = cols, data = LastRecordAfterOP) 
+```
+```{r warning=F,message=F,echo=T,results='hide'}
+ALL_tableOneDF<-data.table(as.matrix(print(ALL_tableOne,nonnormal= "Index_duration")),keep.rownames = T)
+```
+```{r warning=F,message=F}
+knitr::kable(ALL_tableOneDF)
+```
+
+## Build the model to predict breast cancer metastasis at least 3 months in advance
+
+### Set parameters
+```{r}
+seed<-3231
+n_times<-50
+n_folds<-3
+trc<-trainControl(method = "cv", number = n_folds, 
+                  classProbs=TRUE, summaryFunction = twoClassSummary)
+```
+
+### Get completed data 3 months before the index date
+```{r data3months,warning=F,message=F}
+Over90dData <- TimeVariedData %>% filter(Index_duration>90) %>% 
+  arrange(ID,LabName,Index_duration) %>% group_by(ID,LabName) %>% slice(1)
+LabWide90d <- spread(Over90dData %>% select(ID,LabName,LabValue),key=LabName,value=LabValue)
+LastRecordAfterOP_90<-inner_join(TimeIndepData,LabWide90d, by = "ID")
+LastRecordAfterOP_90_rmna <- LastRecordAfterOP_90 %>% filter(complete.cases(LastRecordAfterOP_90))
+LastRecordAfterOP_90_rmna_IsRe<-LastRecordAfterOP_90_rmna %>% filter(IsRe=="Recurrence")
+LastRecordAfterOP_90_rmna_NotRe<-LastRecordAfterOP_90_rmna%>% filter(IsRe=="Non.Recurrence")
+nrow(LastRecordAfterOP_90_rmna_IsRe)
+nrow(LastRecordAfterOP_90_rmna_NotRe)
+```
+
+### 3 evaluation folds
+```{r sampling,warning=F,message=F}
+datalist<-generate3folds(LastRecordAfterOP_90_rmna_IsRe,LastRecordAfterOP_90_rmna_NotRe,seed)
+training_90<-datalist[[1]]
+test_90<-datalist[[2]]
+```
+
+### Model tuning and evaluation - logistic regression
+```{r warning=F,message=F}
+glm_perf_90<-NULL
+for (k in 1:n_times){
+  for (i in 1:n_folds){
+    glm_perf_90_tmp<-glm_tune_eval(training_90,test_90,i,k,seed)
+    glm_perf_90<-rbind(glm_perf_90,glm_perf_90_tmp)
+  }
+}
+glm_perf_90$Days_before<-"90"
+knitr::kable(head(glm_perf_90 %>% select(Model,Days_before,folds,times,AUC) %>% unique()))
+```
+
+### Model tuning and evaluation - Naive bayes
+```{r warning=F,message=F}
+nb_perf_90<-NULL
+for (k in 1:n_times){
+  for (i in 1:n_folds){
+    nb_perf_90_tmp<-nb_tune_eval(training_90,test_90,i,k,seed)
+    nb_perf_90<-rbind(nb_perf_90,nb_perf_90_tmp)
+  }
+}
+nb_perf_90$Days_before<-"90"
+knitr::kable(head(nb_perf_90 %>% select(Model,Days_before,folds,times,AUC) %>% unique()))
+```
+
+### Model tuning and evaluation - random forest
+```{r warning=F,message=F}
+rf_perf_90<-NULL
+rf_tree_90<-NULL
+rf_imp_90<-NULL
+for (k in 1:n_times){
+  for (i in 1:n_folds){
+    rf_temp_com<-rf_tune_eval(training_90,test_90,i,k,seed)
+    rf_perf_90<-rbind(rf_perf_90,rf_temp_com[[1]])
+    rf_tree_90<-rbind(rf_tree_90,rf_temp_com[[2]])
+    rf_imp_90<-rbind(rf_imp_90,rf_temp_com[[3]])
+  }
+}
+rf_perf_90$Days_before<-"90"
+knitr::kable(head(rf_perf_90 %>% select(Model,Days_before,folds,times,AUC) %>% unique()))
+```
+
+## Results
+### Prediction model evaluation
+```{r}
+AUC <- rbind(glm_perf_90,nb_perf_90,rf_perf_90) %>% dplyr::select(Model,Days_before,folds,times,AUC) %>% unique()
+AUCDF<-AUC %>% group_by(Model,Days_before) %>% 
+  summarise(Count=n(),Mean=round(mean(AUC),digit=3),
+            SE=round(sd(AUC)/150,digit=4))
+knitr::kable(AUCDF)
+
+summary(aov(AUC~Model,data=AUC[Days_before=="90"]))
+TukeyHSD(aov(AUC~Model,data=AUC[Days_before=="90"]))
+
+rf_sen_75 <- rf_perf_90[sen>=0.70 & spe>0][order(sen)][, .SD[1], by=.(folds,times)]
+rf_sen_75 %>% summarize(model="Rf",sen = round(mean(sen),3), spe=round(mean(spe),3), 
+                        ppv=round(mean(ppv),3), npv=round(mean(npv),3))
+```
+
+### Important features for breast cancer metastasis preduction
+
+#### Mean Decrease Gini
+```{r warning=F,message=F}
+knitr::kable(rf_imp_90[,.(MeanDecreaseGini=mean(MeanDecreaseGini)),by=(rn)][order(-MeanDecreaseGini)])
+```
+
+#### Number of times being the split variable   
+```{r warning=F,message=F}
+knitr::kable(rf_tree_90[,.N,by=`split var`][order(-N)])
+```
+
+### The effect of time in metastasis prediction 
+```{r eval=F}
+
+
+summary(aov(AUC~Model,data=AUC[Days_before=="60"]))
+TukeyHSD(aov(AUC~Model,data=AUC[Days_before=="60"]))
+
+summary(aov(AUC~Model,data=AUC[Days_before=="30"]))
+TukeyHSD(aov(AUC~Model,data=AUC[Days_before=="30"]))
+
+summary(aov(AUC~Days_before,data=AUC[Model=="RF"]))
+TukeyHSD(aov(AUC~Days_before,data=AUC[Model=="RF"]))
+```
