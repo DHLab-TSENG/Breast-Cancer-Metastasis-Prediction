@@ -6,7 +6,7 @@ output: github_document
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE,cache=TRUE)
+knitr::opts_chunk$set(echo = TRUE)
 options(scipen = 999)
 ```
 ## Set environment
@@ -22,20 +22,19 @@ library(caret)
 library(tableone)
 ```
 ### Load all functions
+The ModelFunction.R can be download from [GitHub](https://github.com/DHLab-CGU/Breast-Cancer-Metastasis-Prediction/blob/master/ModelFunction.R).
 ```{r fun.load,warning=F,message=F}
-# The ModelFunction.R can be download from GitHub
-# https://github.com/DHLab-CGU/Breast-Cancer-Metastasis-Prediction/blob/master/ModelFunction.R
 source('ModelFunction.R')
 ```
 
 ## Data load and pre-process
 ### Load breast cancer data for model development
-
+The clinical data is available from the Ethics Committee of the Chang Gung Memorial Hospital for researchers who meet the criteria for access to confidential data.
 ```{r data.load, warning=F}
 TimeIndepData<-readRDS('TimeIndepData.rds')
-str(select(TimeIndepData,-ID))
+str(dplyr::select(TimeIndepData,-ID))
 TimeVariedData<-readRDS('TimeVariedData.rds')
-str(select(TimeVariedData,-ID))
+str(dplyr::select(TimeVariedData,-ID))
 ```
 
 ### T stage code conversion
@@ -105,7 +104,7 @@ test_90<-datalist[[2]]
 ```
 
 ### Model tuning and evaluation - logistic regression
-```{r glm90,warning=F,message=F}
+```{r glm90,warning=F,message=F,cache=TRUE}
 glm_perf_90<-NULL
 for (k in 1:n_times){
   for (i in 1:n_folds){
@@ -117,7 +116,7 @@ glm_perf_90$Days_before<-"90"
 ```
 
 ### Model tuning and evaluation - Naive bayes
-```{r nb90,warning=F,message=F}
+```{r nb90,warning=F,message=F,cache=TRUE}
 nb_perf_90<-NULL
 for (k in 1:n_times){
   for (i in 1:n_folds){
@@ -129,7 +128,7 @@ nb_perf_90$Days_before<-"90"
 ```
 
 ### Model tuning and evaluation - random forest
-```{r rf90,warning=F,message=F}
+```{r rf90,warning=F,message=F,cache=TRUE}
 rf_perf_90<-NULL
 rf_tree_90<-NULL
 rf_imp_90<-NULL
@@ -165,17 +164,20 @@ rf_sen_75 %>% summarize(model="Rf",sen = round(mean(sen),3), spe=round(mean(spe)
 
 #### Mean Decrease Gini
 ```{r mdg,warning=F,message=F}
-knitr::kable(rf_imp_90[,.(MeanDecreaseGini=mean(MeanDecreaseGini)),by=(rn)][order(-MeanDecreaseGini)])
+knitr::kable(
+  rf_imp_90[,.(MeanDecreaseGini=mean(MeanDecreaseGini)),by=(rn)][order(-MeanDecreaseGini)] %>% 
+    head(10), 
+  row.names=T)
 ```
 
 #### Number of times being the split variable   
 ```{r split,warning=F,message=F}
-knitr::kable(rf_tree_90[,.N,by=`split var`][order(-N)])
+knitr::kable(rf_tree_90[,.N,by=`split var`][order(-N)] %>% head(10),row.names=T)
 ```
 
 ### The effect of time in metastasis prediction 
 #### Build and evaluate 60 days model
-```{r model60,warning=F,message=F}
+```{r model60,warning=F,message=F,cache=TRUE}
 LastRecordAfterOP_60_rmna_IsRe<-getDataForModel(TimeVariedData,TimeIndepData,60,"Recurrence")
 LastRecordAfterOP_60_rmna_NotRe<-getDataForModel(TimeVariedData,TimeIndepData,60,"Non.Recurrence")
 
@@ -212,7 +214,7 @@ for (k in 1:n_times){
 rf_perf_60$Days_before<-"60"
 ```
 #### Build and evaluate 30 days model
-```{r model30,warning=F,message=F}
+```{r model30,warning=F,message=F,cache=TRUE}
 LastRecordAfterOP_30_rmna_IsRe<-getDataForModel(TimeVariedData,TimeIndepData,30,"Recurrence")
 LastRecordAfterOP_30_rmna_NotRe<-getDataForModel(TimeVariedData,TimeIndepData,30,"Non.Recurrence")
 
@@ -257,13 +259,22 @@ AUCDFTime<-AUCTime %>% group_by(Model,Days_before) %>%
   summarise(Count=n(),Mean=round(mean(AUC),digit=3),
             SE=round(sd(AUC)/n(),digit=4))
 knitr::kable(AUCDFTime)
+aov60<-summary(aov(AUC~Model,data=AUCTime[Days_before=="60"]))
+knitr::kable(aov60[[1]])
+Tukey60<-TukeyHSD(aov(AUC~Model,data=AUCTime[Days_before=="60"]))
+knitr::kable(Tukey60$Model)
+aov30<-summary(aov(AUC~Model,data=AUCTime[Days_before=="30"]))
+knitr::kable(aov30[[1]])
+Tukey30<-TukeyHSD(aov(AUC~Model,data=AUCTime[Days_before=="30"]))
+knitr::kable(Tukey30$Model)
 
-summary(aov(AUC~Model,data=AUCTime[Days_before=="60"]))
-TukeyHSD(aov(AUC~Model,data=AUCTime[Days_before=="60"]))
+aovRF<-summary(aov(AUC~Days_before,data=AUCTime[Model=="RF"]))
+knitr::kable(aovRF[[1]])
+TukeyRF<-TukeyHSD(aov(AUC~Days_before,data=AUCTime[Model=="RF"]))
+knitr::kable(TukeyRF$Model)
 
-summary(aov(AUC~Model,data=AUCTime[Days_before=="30"]))
-TukeyHSD(aov(AUC~Model,data=AUCTime[Days_before=="30"]))
-
-summary(aov(AUC~Days_before,data=AUCTime[Model=="RF"]))
-TukeyHSD(aov(AUC~Days_before,data=AUCTime[Model=="RF"]))
 ```
+
+### Contact
+
+Please feel free to contact `yjtseng [at] mail.cgu.edu.tw` or **open an issue on GitHub** if you have any questions.

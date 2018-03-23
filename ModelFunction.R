@@ -62,6 +62,7 @@ rf_tune_eval<-function(trainingData,testData,fold,time,seed,trcpar){
   Rf_Performance$Model<-"RF"
   
   TREE<-data.table(getTree(Rf$finalModel,labelVar = TRUE))
+  TREE<-TREE[`split var`!='NA']
   TREE$folds<-fold
   TREE$times<-time
   

@@ -31,9 +31,11 @@ Data load and pre-process
 
 ### Load breast cancer data for model development
 
+The clinical data used in the manuscript is available from the Ethics Committee of the Chang Gung Memorial Hospital for researchers who meet the criteria for access to confidential data.
+
 ``` r
 TimeIndepData<-readRDS('TimeIndepData.rds')
-str(select(TimeIndepData,-ID))
+str(dplyr::select(TimeIndepData,-ID))
 ```
 
     ## Classes 'data.table' and 'data.frame':   205 obs. of  10 variables:
@@ -51,7 +53,7 @@ str(select(TimeIndepData,-ID))
 
 ``` r
 TimeVariedData<-readRDS('TimeVariedData.rds')
-str(select(TimeVariedData,-ID))
+str(dplyr::select(TimeVariedData,-ID))
 ```
 
     ## Classes 'data.table' and 'data.frame':   4321 obs. of  4 variables:
@@ -285,70 +287,40 @@ rf_sen_75 %>% summarize(model="Rf",sen = round(mean(sen),3), spe=round(mean(spe)
 #### Mean Decrease Gini
 
 ``` r
-knitr::kable(rf_imp_90[,.(MeanDecreaseGini=mean(MeanDecreaseGini)),by=(rn)][order(-MeanDecreaseGini)])
+knitr::kable(rf_imp_90[,.(MeanDecreaseGini=mean(MeanDecreaseGini)),by=(rn)][order(-MeanDecreaseGini)] %>% head(10),row.names=T)
 ```
 
-| rn           |  MeanDecreaseGini|
-|:-------------|-----------------:|
-| OPAge        |         2.1145143|
-| CEA          |         1.6635891|
-| CA153        |         0.9915120|
-| HER2         |         0.9204111|
-| Tissue.ER1   |         0.5292963|
-| pNi3         |         0.3490936|
-| pTi6         |         0.3103191|
-| pTi5         |         0.2466921|
-| pNi1         |         0.2196941|
-| Tissue.PR1   |         0.1873364|
-| pTi4         |         0.1851653|
-| Tissue.ER3   |         0.1539886|
-| pNi2         |         0.1527285|
-| Tissue.PR2   |         0.1403161|
-| Tissue.HER23 |         0.1226642|
-| pTi7         |         0.1215140|
-| Tissue.ER2   |         0.1097126|
-| pTi3         |         0.1095534|
-| Tissue.HER22 |         0.0916811|
-| Tissue.PR3   |         0.0811416|
-| pTi8         |         0.0727220|
-| pTi2         |         0.0638162|
-| pTi1         |         0.0549654|
-| Tissue.HER21 |         0.0182607|
-| pTiNA        |         0.0000000|
+|     | rn         |  MeanDecreaseGini|
+|-----|:-----------|-----------------:|
+| 1   | OPAge      |         2.1145143|
+| 2   | CEA        |         1.6635891|
+| 3   | CA153      |         0.9915120|
+| 4   | HER2       |         0.9204111|
+| 5   | Tissue.ER1 |         0.5292963|
+| 6   | pNi3       |         0.3490936|
+| 7   | pTi6       |         0.3103191|
+| 8   | pTi5       |         0.2466921|
+| 9   | pNi1       |         0.2196941|
+| 10  | Tissue.PR1 |         0.1873364|
 
 #### Number of times being the split variable
 
 ``` r
-knitr::kable(rf_tree_90[,.N,by=`split var`][order(-N)])
+knitr::kable(rf_tree_90[,.N,by=`split var`][order(-N)] %>% head(10),row.names=T)
 ```
 
-| split var    |    N|
-|:-------------|----:|
-| NA           |  778|
-| CEA          |   94|
-| OPAge        |   76|
-| HER2         |   68|
-| CA153        |   65|
-| pNi1         |   33|
-| pNi3         |   31|
-| pTi6         |   30|
-| Tissue.ER1   |   27|
-| Tissue.ER2   |   19|
-| Tissue.ER3   |   17|
-| Tissue.PR1   |   16|
-| pTi5         |   16|
-| pTi4         |   15|
-| Tissue.HER22 |   15|
-| pTi3         |   15|
-| Tissue.HER23 |   15|
-| pNi2         |   14|
-| pTi1         |   13|
-| Tissue.PR2   |   12|
-| pTi2         |   11|
-| pTi8         |    9|
-| Tissue.PR3   |    8|
-| pTi7         |    6|
-| Tissue.HER21 |    3|
+|     | split var  |    N|
+|-----|:-----------|----:|
+| 1   | CEA        |   94|
+| 2   | OPAge      |   76|
+| 3   | HER2       |   68|
+| 4   | CA153      |   65|
+| 5   | pNi1       |   33|
+| 6   | pNi3       |   31|
+| 7   | pTi6       |   30|
+| 8   | Tissue.ER1 |   27|
+| 9   | Tissue.ER2 |   19|
+| 10  | Tissue.ER3 |   17|
 
 ### The effect of time in metastasis prediction
 
@@ -455,76 +427,62 @@ knitr::kable(AUCDFTime)
 | RF    | 90           |    150|  0.744|  0.0006|
 
 ``` r
-summary(aov(AUC~Model,data=AUCTime[Days_before=="60"]))
+aov60<-summary(aov(AUC~Model,data=AUCTime[Days_before=="60"]))
+knitr::kable(aov60[[1]])
 ```
 
-    ##              Df Sum Sq Mean Sq F value              Pr(>F)    
-    ## Model         2  2.611  1.3054   174.3 <0.0000000000000002 ***
-    ## Residuals   447  3.347  0.0075                                
-    ## ---
-    ## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+|           |   Df|    Sum Sq|    Mean Sq|   F value|  Pr(&gt;F)|
+|-----------|----:|---------:|----------:|---------:|----------:|
+| Model     |    2|  2.610814|  1.3054071|  174.3157|          0|
+| Residuals |  447|  3.347473|  0.0074888|        NA|         NA|
 
 ``` r
-TukeyHSD(aov(AUC~Model,data=AUCTime[Days_before=="60"]))
+Tukey60<-TukeyHSD(aov(AUC~Model,data=AUCTime[Days_before=="60"]))
+knitr::kable(Tukey60$Model)
 ```
 
-    ##   Tukey multiple comparisons of means
-    ##     95% family-wise confidence level
-    ## 
-    ## Fit: aov(formula = AUC ~ Model, data = AUCTime[Days_before == "60"])
-    ## 
-    ## $Model
-    ##               diff        lwr        upr     p adj
-    ## NB-GLM 0.157848570  0.1343508 0.18134639 0.0000000
-    ## RF-GLM 0.165069594  0.1415718 0.18856741 0.0000000
-    ## RF-NB  0.007221024 -0.0162768 0.03071884 0.7502036
+|        |       diff|         lwr|        upr|      p adj|
+|--------|----------:|-----------:|----------:|----------:|
+| NB-GLM |  0.1578486|   0.1343508|  0.1813464|  0.0000000|
+| RF-GLM |  0.1650696|   0.1415718|  0.1885674|  0.0000000|
+| RF-NB  |  0.0072210|  -0.0162768|  0.0307188|  0.7502036|
 
 ``` r
-summary(aov(AUC~Model,data=AUCTime[Days_before=="30"]))
+aov30<-summary(aov(AUC~Model,data=AUCTime[Days_before=="30"]))
+knitr::kable(aov30[[1]])
 ```
 
-    ##              Df Sum Sq Mean Sq F value              Pr(>F)    
-    ## Model         2  2.722  1.3612   78.96 <0.0000000000000002 ***
-    ## Residuals   447  7.705  0.0172                                
-    ## ---
-    ## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+|           |   Df|    Sum Sq|    Mean Sq|   F value|  Pr(&gt;F)|
+|-----------|----:|---------:|----------:|---------:|----------:|
+| Model     |    2|  2.722357|  1.3611784|  78.96348|          0|
+| Residuals |  447|  7.705419|  0.0172381|        NA|         NA|
 
 ``` r
-TukeyHSD(aov(AUC~Model,data=AUCTime[Days_before=="30"]))
+Tukey30<-TukeyHSD(aov(AUC~Model,data=AUCTime[Days_before=="30"]))
+knitr::kable(Tukey30$Model)
 ```
 
-    ##   Tukey multiple comparisons of means
-    ##     95% family-wise confidence level
-    ## 
-    ## Fit: aov(formula = AUC ~ Model, data = AUCTime[Days_before == "30"])
-    ## 
-    ## $Model
-    ##              diff        lwr        upr    p adj
-    ## NB-GLM 0.15342487  0.1177742 0.18907550 0.000000
-    ## RF-GLM 0.17453459  0.1388840 0.21018522 0.000000
-    ## RF-NB  0.02110973 -0.0145409 0.05676036 0.345719
+|        |       diff|         lwr|        upr|     p adj|
+|--------|----------:|-----------:|----------:|---------:|
+| NB-GLM |  0.1534249|   0.1177742|  0.1890755|  0.000000|
+| RF-GLM |  0.1745346|   0.1388840|  0.2101852|  0.000000|
+| RF-NB  |  0.0211097|  -0.0145409|  0.0567604|  0.345719|
 
 ``` r
-summary(aov(AUC~Days_before,data=AUCTime[Model=="RF"]))
+aovRF<-summary(aov(AUC~Days_before,data=AUCTime[Model=="RF"]))
+knitr::kable(aovRF[[1]])
 ```
 
-    ##              Df Sum Sq Mean Sq F value    Pr(>F)    
-    ## Days_before   2  0.208 0.10376   11.45 0.0000141 ***
-    ## Residuals   447  4.050 0.00906                      
-    ## ---
-    ## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+|              |   Df|     Sum Sq|    Mean Sq|   F value|  Pr(&gt;F)|
+|--------------|----:|----------:|----------:|---------:|----------:|
+| Days\_before |    2|  0.2075296|  0.1037648|  11.45343|  0.0000141|
+| Residuals    |  447|  4.0496913|  0.0090597|        NA|         NA|
 
 ``` r
-TukeyHSD(aov(AUC~Days_before,data=AUCTime[Model=="RF"]))
+TukeyRF<-TukeyHSD(aov(AUC~Days_before,data=AUCTime[Model=="RF"]))
+knitr::kable(TukeyRF$Model)
 ```
 
-    ##   Tukey multiple comparisons of means
-    ##     95% family-wise confidence level
-    ## 
-    ## Fit: aov(formula = AUC ~ Days_before, data = AUCTime[Model == "RF"])
-    ## 
-    ## $Days_before
-    ##              diff         lwr         upr     p adj
-    ## 60-30  0.01106369 -0.01478152  0.03690889 0.5730428
-    ## 90-30 -0.03900457 -0.06484978 -0.01315937 0.0012421
-    ## 90-60 -0.05006826 -0.07591346 -0.02422305 0.0000201
+### Contact
+
+Please feel free to contact `yjtseng [at] mail.cgu.edu.tw` or **open an issue on GitHub** if you have any questions.
