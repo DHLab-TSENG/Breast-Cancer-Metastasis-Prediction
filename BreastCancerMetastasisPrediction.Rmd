@@ -24,6 +24,7 @@ library(tableone)
 ### Load all functions
 ```{r warning=F,message=F}
 # The ModelFunction.R can be download from GitHub
+# https://github.com/DHLab-CGU/Breast-Cancer-Metastasis-Prediction/blob/master/ModelFunction.R
 source('ModelFunction.R')
 ```
 
@@ -113,12 +114,11 @@ test_90<-datalist[[2]]
 glm_perf_90<-NULL
 for (k in 1:n_times){
   for (i in 1:n_folds){
-    glm_perf_90_tmp<-glm_tune_eval(training_90,test_90,i,k,seed)
+    glm_perf_90_tmp<-glm_tune_eval(training_90,test_90,i,k,seed,trc)
     glm_perf_90<-rbind(glm_perf_90,glm_perf_90_tmp)
   }
 }
 glm_perf_90$Days_before<-"90"
-knitr::kable(head(glm_perf_90 %>% select(Model,Days_before,folds,times,AUC) %>% unique()))
 ```
 
 ### Model tuning and evaluation - Naive bayes
@@ -126,12 +126,11 @@ knitr::kable(head(glm_perf_90 %>% select(Model,Days_before,folds,times,AUC) %>% 
 nb_perf_90<-NULL
 for (k in 1:n_times){
   for (i in 1:n_folds){
-    nb_perf_90_tmp<-nb_tune_eval(training_90,test_90,i,k,seed)
+    nb_perf_90_tmp<-nb_tune_eval(training_90,test_90,i,k,seed,trc)
     nb_perf_90<-rbind(nb_perf_90,nb_perf_90_tmp)
   }
 }
 nb_perf_90$Days_before<-"90"
-knitr::kable(head(nb_perf_90 %>% select(Model,Days_before,folds,times,AUC) %>% unique()))
 ```
 
 ### Model tuning and evaluation - random forest
@@ -141,14 +140,13 @@ rf_tree_90<-NULL
 rf_imp_90<-NULL
 for (k in 1:n_times){
   for (i in 1:n_folds){
-    rf_temp_com<-rf_tune_eval(training_90,test_90,i,k,seed)
+    rf_temp_com<-rf_tune_eval(training_90,test_90,i,k,seed,trc)
     rf_perf_90<-rbind(rf_perf_90,rf_temp_com[[1]])
     rf_tree_90<-rbind(rf_tree_90,rf_temp_com[[2]])
     rf_imp_90<-rbind(rf_imp_90,rf_temp_com[[3]])
   }
 }
 rf_perf_90$Days_before<-"90"
-knitr::kable(head(rf_perf_90 %>% select(Model,Days_before,folds,times,AUC) %>% unique()))
 ```
 
 ## Results
@@ -181,9 +179,39 @@ knitr::kable(rf_tree_90[,.N,by=`split var`][order(-N)])
 ```
 
 ### The effect of time in metastasis prediction 
+#### Build and evaluate 60 days model
+```{r warning=F,message=F}
+glm_perf_60<-NULL
+nb_perf_60<-NULL
+rf_perf_90<-NULL
+for (k in 1:n_times){
+  for (i in 1:n_folds){
+    glm_perf_90_tmp<-glm_tune_eval(training_90,test_90,i,k,seed,trc)
+    glm_perf_90<-rbind(glm_perf_90,glm_perf_90_tmp)
+  }
+}
+glm_perf_90$Days_before<-"90"
+
+for (k in 1:n_times){
+  for (i in 1:n_folds){
+    nb_perf_90_tmp<-nb_tune_eval(training_90,test_90,i,k,seed,trc)
+    nb_perf_90<-rbind(nb_perf_90,nb_perf_90_tmp)
+  }
+}
+nb_perf_90$Days_before<-"90"
+
+for (k in 1:n_times){
+  for (i in 1:n_folds){
+    rf_temp_com<-rf_tune_eval(training_90,test_90,i,k,seed,trc)
+    rf_perf_90<-rbind(rf_perf_90,rf_temp_com[[1]])
+  }
+}
+rf_perf_90$Days_before<-"90"
+```
+#### Build and evaluate 30 days model
+
+#### Compare models
 ```{r eval=F}
-
-
 summary(aov(AUC~Model,data=AUC[Days_before=="60"]))
 TukeyHSD(aov(AUC~Model,data=AUC[Days_before=="60"]))
 

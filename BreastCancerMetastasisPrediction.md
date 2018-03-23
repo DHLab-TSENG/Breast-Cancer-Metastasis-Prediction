@@ -22,6 +22,7 @@ library(tableone)
 
 ``` r
 # The ModelFunction.R can be download from GitHub
+# https://github.com/DHLab-CGU/Breast-Cancer-Metastasis-Prediction/blob/master/ModelFunction.R
 source('ModelFunction.R')
 ```
 
@@ -163,13 +164,22 @@ trc<-trainControl(method = "cv", number = n_folds,
 
 ``` r
 Over90dData <- TimeVariedData %>% filter(Index_duration>90) %>% 
-  arrange(ID,LabName,-Index_duration) %>% group_by(ID,LabName) %>% slice(1)
+  arrange(ID,LabName,Index_duration) %>% group_by(ID,LabName) %>% slice(1)
 LabWide90d <- spread(Over90dData %>% select(ID,LabName,LabValue),key=LabName,value=LabValue)
 LastRecordAfterOP_90<-inner_join(TimeIndepData,LabWide90d, by = "ID")
 LastRecordAfterOP_90_rmna <- LastRecordAfterOP_90 %>% filter(complete.cases(LastRecordAfterOP_90))
 LastRecordAfterOP_90_rmna_IsRe<-LastRecordAfterOP_90_rmna %>% filter(IsRe=="Recurrence")
 LastRecordAfterOP_90_rmna_NotRe<-LastRecordAfterOP_90_rmna%>% filter(IsRe=="Non.Recurrence")
+nrow(LastRecordAfterOP_90_rmna_IsRe)
 ```
+
+    ## [1] 19
+
+``` r
+nrow(LastRecordAfterOP_90_rmna_NotRe)
+```
+
+    ## [1] 125
 
 ### 3 evaluation folds
 
@@ -185,23 +195,12 @@ test_90<-datalist[[2]]
 glm_perf_90<-NULL
 for (k in 1:n_times){
   for (i in 1:n_folds){
-    set.seed(k+seed)
-    glm_perf_90_tmp<-glm_tune_eval(training_90,test_90,i,k)
+    glm_perf_90_tmp<-glm_tune_eval(training_90,test_90,i,k,seed,trc)
     glm_perf_90<-rbind(glm_perf_90,glm_perf_90_tmp)
   }
 }
 glm_perf_90$Days_before<-"90"
-knitr::kable(head(glm_perf_90))
 ```
-
-|  folds|  times|   tp|   fp|   tn|   fn|  sen|        spe|        ppv|        npv|        AUC| Model | Days\_before |
-|------:|------:|----:|----:|----:|----:|----:|----------:|----------:|----------:|----------:|:------|:-------------|
-|      1|      1|    0|    0|   42|    6|  0.0|  1.0000000|        NaN|  0.8750000|  0.5119048| GLM   | 90           |
-|      1|      1|    3|   18|   24|    3|  0.5|  0.5714286|  0.1428571|  0.8888889|  0.5119048| GLM   | 90           |
-|      1|      1|    3|   19|   23|    3|  0.5|  0.5476190|  0.1363636|  0.8846154|  0.5119048| GLM   | 90           |
-|      1|      1|    3|   20|   22|    3|  0.5|  0.5238095|  0.1304348|  0.8800000|  0.5119048| GLM   | 90           |
-|      1|      1|    3|   21|   21|    3|  0.5|  0.5000000|  0.1250000|  0.8750000|  0.5119048| GLM   | 90           |
-|      1|      1|    3|   22|   20|    3|  0.5|  0.4761905|  0.1200000|  0.8695652|  0.5119048| GLM   | 90           |
 
 ### Model tuning and evaluation - Naive bayes
 
@@ -209,23 +208,12 @@ knitr::kable(head(glm_perf_90))
 nb_perf_90<-NULL
 for (k in 1:n_times){
   for (i in 1:n_folds){
-    set.seed(k+seed)
-    nb_perf_90_tmp<-nb_tune_eval(training_90,test_90,i,k)
+    nb_perf_90_tmp<-nb_tune_eval(training_90,test_90,i,k,seed,trc)
     nb_perf_90<-rbind(nb_perf_90,nb_perf_90_tmp)
   }
 }
 nb_perf_90$Days_before<-"90"
-knitr::kable(head(nb_perf_90))
 ```
-
-|  folds|  times|   tp|   fp|   tn|   fn|        sen|        spe|        ppv|        npv|        AUC| Model | Days\_before |
-|------:|------:|----:|----:|----:|----:|----------:|----------:|----------:|----------:|----------:|:------|:-------------|
-|      1|      1|    0|    0|   42|    6|  0.0000000|  1.0000000|        NaN|  0.8750000|  0.6230159| NB    | 90           |
-|      1|      1|    0|    1|   41|    6|  0.0000000|  0.9761905|  0.0000000|  0.8723404|  0.6230159| NB    | 90           |
-|      1|      1|    1|    1|   41|    5|  0.1666667|  0.9761905|  0.5000000|  0.8913043|  0.6230159| NB    | 90           |
-|      1|      1|    1|    2|   40|    5|  0.1666667|  0.9523810|  0.3333333|  0.8888889|  0.6230159| NB    | 90           |
-|      1|      1|    1|    3|   39|    5|  0.1666667|  0.9285714|  0.2500000|  0.8863636|  0.6230159| NB    | 90           |
-|      1|      1|    1|    4|   38|    5|  0.1666667|  0.9047619|  0.2000000|  0.8837209|  0.6230159| NB    | 90           |
 
 ### Model tuning and evaluation - random forest
 
@@ -235,25 +223,14 @@ rf_tree_90<-NULL
 rf_imp_90<-NULL
 for (k in 1:n_times){
   for (i in 1:n_folds){
-    set.seed(k+seed)
-    rf_temp_com<-rf_tune_eval(training_90,test_90,i,k)
+    rf_temp_com<-rf_tune_eval(training_90,test_90,i,k,seed,trc)
     rf_perf_90<-rbind(rf_perf_90,rf_temp_com[[1]])
     rf_tree_90<-rbind(rf_tree_90,rf_temp_com[[2]])
     rf_imp_90<-rbind(rf_imp_90,rf_temp_com[[3]])
   }
 }
 rf_perf_90$Days_before<-"90"
-knitr::kable(head(rf_perf_90))
 ```
-
-|  folds|  times|   tp|   fp|   tn|   fn|  sen|        spe|  ppv|        npv|        AUC| Model | Days\_before |
-|------:|------:|----:|----:|----:|----:|----:|----------:|----:|----------:|----------:|:------|:-------------|
-|      1|      1|    0|    0|   42|    6|    0|  1.0000000|  NaN|  0.8750000|  0.7579365| RF    | 90           |
-|      1|      1|    0|    1|   41|    6|    0|  0.9761905|    0|  0.8723404|  0.7579365| RF    | 90           |
-|      1|      1|    0|    2|   40|    6|    0|  0.9523810|    0|  0.8695652|  0.7579365| RF    | 90           |
-|      1|      1|    0|    3|   39|    6|    0|  0.9285714|    0|  0.8666667|  0.7579365| RF    | 90           |
-|      1|      1|    0|    4|   38|    6|    0|  0.9047619|    0|  0.8636364|  0.7579365| RF    | 90           |
-|      1|      1|    0|    5|   37|    6|    0|  0.8809524|    0|  0.8604651|  0.7579365| RF    | 90           |
 
 Results
 -------
@@ -270,17 +247,17 @@ knitr::kable(AUCDF)
 
 | Model | Days\_before |  Count|   Mean|      SE|
 |:------|:-------------|------:|------:|-------:|
-| GLM   | 90           |    150|  0.544|  0.0007|
-| NB    | 90           |    150|  0.621|  0.0006|
-| RF    | 90           |    150|  0.673|  0.0006|
+| GLM   | 90           |    150|  0.581|  0.0006|
+| NB    | 90           |    150|  0.693|  0.0006|
+| RF    | 90           |    150|  0.744|  0.0006|
 
 ``` r
 summary(aov(AUC~Model,data=AUC[Days_before=="90"]))
 ```
 
     ##              Df Sum Sq Mean Sq F value              Pr(>F)    
-    ## Model         2  1.253  0.6266   70.75 <0.0000000000000002 ***
-    ## Residuals   447  3.959  0.0089                                
+    ## Model         2  2.093  1.0467   123.4 <0.0000000000000002 ***
+    ## Residuals   447  3.792  0.0085                                
     ## ---
     ## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
 
@@ -294,10 +271,10 @@ TukeyHSD(aov(AUC~Model,data=AUC[Days_before=="90"]))
     ## Fit: aov(formula = AUC ~ Model, data = AUC[Days_before == "90"])
     ## 
     ## $Model
-    ##              diff        lwr        upr     p adj
-    ## NB-GLM 0.07667266 0.05111894 0.10222638 0.0000000
-    ## RF-GLM 0.12846072 0.10290700 0.15401444 0.0000000
-    ## RF-NB  0.05178806 0.02623435 0.07734178 0.0000076
+    ##             diff        lwr       upr     p adj
+    ## NB-GLM 0.1123532 0.08734401 0.1373624 0.0000000
+    ## RF-GLM 0.1632570 0.13824781 0.1882662 0.0000000
+    ## RF-NB  0.0509038 0.02589460 0.0759130 0.0000069
 
 ``` r
 rf_sen_75 <- rf_perf_90[sen>=0.70 & spe>0][order(sen)][, .SD[1], by=.(folds,times)]
@@ -306,7 +283,7 @@ rf_sen_75 %>% summarize(model="Rf",sen = round(mean(sen),3), spe=round(mean(spe)
 ```
 
     ##   model   sen   spe   ppv   npv
-    ## 1    Rf 0.795 0.512 0.217 0.934
+    ## 1    Rf 0.797 0.617 0.278 0.948
 
 ### Important features for breast cancer metastasis preduction
 
@@ -318,30 +295,30 @@ knitr::kable(rf_imp_90[,.(MeanDecreaseGini=mean(MeanDecreaseGini)),by=(rn)][orde
 
 | rn           |  MeanDecreaseGini|
 |:-------------|-----------------:|
-| OPAge        |         2.3834134|
-| CEA          |         1.3846393|
-| CA153        |         1.1784172|
-| HER2         |         0.9988766|
-| Tissue.ER1   |         0.5652976|
-| pNi3         |         0.4008728|
-| pTi6         |         0.2946136|
-| pTi5         |         0.2617994|
-| pNi1         |         0.2362085|
-| pTi4         |         0.1780165|
-| Tissue.PR1   |         0.1741060|
-| Tissue.ER3   |         0.1684177|
-| pNi2         |         0.1541849|
-| pTi7         |         0.1399497|
-| Tissue.PR2   |         0.1316868|
-| Tissue.ER2   |         0.1183170|
-| Tissue.HER23 |         0.1182435|
-| pTi3         |         0.1119263|
-| Tissue.PR3   |         0.0985570|
-| Tissue.HER22 |         0.0914043|
-| pTi8         |         0.0880500|
-| pTi2         |         0.0601897|
-| pTi1         |         0.0441810|
-| Tissue.HER21 |         0.0158987|
+| OPAge        |         2.1145143|
+| CEA          |         1.6635891|
+| CA153        |         0.9915120|
+| HER2         |         0.9204111|
+| Tissue.ER1   |         0.5292963|
+| pNi3         |         0.3490936|
+| pTi6         |         0.3103191|
+| pTi5         |         0.2466921|
+| pNi1         |         0.2196941|
+| Tissue.PR1   |         0.1873364|
+| pTi4         |         0.1851653|
+| Tissue.ER3   |         0.1539886|
+| pNi2         |         0.1527285|
+| Tissue.PR2   |         0.1403161|
+| Tissue.HER23 |         0.1226642|
+| pTi7         |         0.1215140|
+| Tissue.ER2   |         0.1097126|
+| pTi3         |         0.1095534|
+| Tissue.HER22 |         0.0916811|
+| Tissue.PR3   |         0.0811416|
+| pTi8         |         0.0727220|
+| pTi2         |         0.0638162|
+| pTi1         |         0.0549654|
+| Tissue.HER21 |         0.0182607|
 | pTiNA        |         0.0000000|
 
 #### Number of times being the split variable
@@ -352,33 +329,35 @@ knitr::kable(rf_tree_90[,.N,by=`split var`][order(-N)])
 
 | split var    |    N|
 |:-------------|----:|
-| NA           |  822|
-| OPAge        |  113|
-| CEA          |   85|
-| HER2         |   67|
-| CA153        |   61|
-| pNi1         |   40|
-| Tissue.ER1   |   35|
-| pNi3         |   30|
-| pTi6         |   29|
-| pTi5         |   23|
-| Tissue.PR1   |   23|
-| pNi2         |   19|
-| pTi4         |   18|
-| Tissue.ER2   |   15|
+| NA           |  778|
+| CEA          |   94|
+| OPAge        |   76|
+| HER2         |   68|
+| CA153        |   65|
+| pNi1         |   33|
+| pNi3         |   31|
+| pTi6         |   30|
+| Tissue.ER1   |   27|
+| Tissue.ER2   |   19|
+| Tissue.ER3   |   17|
+| Tissue.PR1   |   16|
+| pTi5         |   16|
+| pTi4         |   15|
+| Tissue.HER22 |   15|
+| pTi3         |   15|
 | Tissue.HER23 |   15|
-| Tissue.PR2   |   14|
-| Tissue.ER3   |   13|
-| pTi8         |   12|
-| pTi3         |   12|
-| pTi2         |   12|
-| Tissue.HER22 |   11|
-| pTi7         |   11|
+| pNi2         |   14|
+| pTi1         |   13|
+| Tissue.PR2   |   12|
+| pTi2         |   11|
+| pTi8         |    9|
 | Tissue.PR3   |    8|
-| pTi1         |    4|
-| Tissue.HER21 |    2|
+| pTi7         |    6|
+| Tissue.HER21 |    3|
 
 ### The effect of time in metastasis prediction
+
+#### 
 
 ``` r
 summary(aov(AUC~Model,data=AUC[Days_before=="60"]))
