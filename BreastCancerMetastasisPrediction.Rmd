@@ -6,12 +6,12 @@ output: github_document
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(echo = TRUE,cache=TRUE)
 options(scipen = 999)
 ```
 ## Set environment
 ### Load all librarys
-```{r library, warning=F,message=F}
+```{r library.load, warning=F,message=F}
 library(data.table)
 library(ggplot2)
 library(lubridate)
@@ -22,7 +22,7 @@ library(caret)
 library(tableone)
 ```
 ### Load all functions
-```{r warning=F,message=F}
+```{r fun.load,warning=F,message=F}
 # The ModelFunction.R can be download from GitHub
 # https://github.com/DHLab-CGU/Breast-Cancer-Metastasis-Prediction/blob/master/ModelFunction.R
 source('ModelFunction.R')
@@ -71,17 +71,17 @@ vars <- c("OPAge","pTi","pNi","pMi","Tissue.ER","Tissue.PR","Tissue.HER2","CA153
 cols <- c("pTi", "pNi", "pMi", "Tissue.ER", "Tissue.PR", "Tissue.HER2")
 ALL_tableOne <- CreateTableOne(vars = vars, strata = c("IsRe"),factorVars = cols, data = LastRecordAfterOP) 
 ```
-```{r warning=F,message=F,echo=T,results='hide'}
+```{r tableone1,warning=F,message=F,echo=T,results='hide'}
 ALL_tableOneDF<-data.table(as.matrix(print(ALL_tableOne,nonnormal= "Index_duration")),keep.rownames = T)
 ```
-```{r warning=F,message=F}
+```{r tableone2,warning=F,message=F}
 knitr::kable(ALL_tableOneDF)
 ```
 
 ## Build the model to predict breast cancer metastasis at least 3 months in advance
 
 ### Set parameters
-```{r}
+```{r setpar}
 seed<-3231
 n_times<-50
 n_folds<-3
@@ -91,13 +91,8 @@ trc<-trainControl(method = "cv", number = n_folds,
 
 ### Get completed data 3 months before the index date
 ```{r data3months,warning=F,message=F}
-Over90dData <- TimeVariedData %>% filter(Index_duration>90) %>% 
-  arrange(ID,LabName,Index_duration) %>% group_by(ID,LabName) %>% slice(1)
-LabWide90d <- spread(Over90dData %>% select(ID,LabName,LabValue),key=LabName,value=LabValue)
-LastRecordAfterOP_90<-inner_join(TimeIndepData,LabWide90d, by = "ID")
-LastRecordAfterOP_90_rmna <- LastRecordAfterOP_90 %>% filter(complete.cases(LastRecordAfterOP_90))
-LastRecordAfterOP_90_rmna_IsRe<-LastRecordAfterOP_90_rmna %>% filter(IsRe=="Recurrence")
-LastRecordAfterOP_90_rmna_NotRe<-LastRecordAfterOP_90_rmna%>% filter(IsRe=="Non.Recurrence")
+LastRecordAfterOP_90_rmna_IsRe<-getDataForModel(TimeVariedData,TimeIndepData,90,"Recurrence")
+LastRecordAfterOP_90_rmna_NotRe<-getDataForModel(TimeVariedData,TimeIndepData,90,"Non.Recurrence")
 nrow(LastRecordAfterOP_90_rmna_IsRe)
 nrow(LastRecordAfterOP_90_rmna_NotRe)
 ```
@@ -110,7 +105,7 @@ test_90<-datalist[[2]]
 ```
 
 ### Model tuning and evaluation - logistic regression
-```{r warning=F,message=F}
+```{r glm90,warning=F,message=F}
 glm_perf_90<-NULL
 for (k in 1:n_times){
   for (i in 1:n_folds){
@@ -122,7 +117,7 @@ glm_perf_90$Days_before<-"90"
 ```
 
 ### Model tuning and evaluation - Naive bayes
-```{r warning=F,message=F}
+```{r nb90,warning=F,message=F}
 nb_perf_90<-NULL
 for (k in 1:n_times){
   for (i in 1:n_folds){
@@ -134,7 +129,7 @@ nb_perf_90$Days_before<-"90"
 ```
 
 ### Model tuning and evaluation - random forest
-```{r warning=F,message=F}
+```{r rf90,warning=F,message=F}
 rf_perf_90<-NULL
 rf_tree_90<-NULL
 rf_imp_90<-NULL
@@ -151,11 +146,11 @@ rf_perf_90$Days_before<-"90"
 
 ## Results
 ### Prediction model evaluation
-```{r}
+```{r AUC90}
 AUC <- rbind(glm_perf_90,nb_perf_90,rf_perf_90) %>% dplyr::select(Model,Days_before,folds,times,AUC) %>% unique()
 AUCDF<-AUC %>% group_by(Model,Days_before) %>% 
   summarise(Count=n(),Mean=round(mean(AUC),digit=3),
-            SE=round(sd(AUC)/150,digit=4))
+            SE=round(sd(AUC)/n(),digit=4))
 knitr::kable(AUCDF)
 
 summary(aov(AUC~Model,data=AUC[Days_before=="90"]))
@@ -169,55 +164,106 @@ rf_sen_75 %>% summarize(model="Rf",sen = round(mean(sen),3), spe=round(mean(spe)
 ### Important features for breast cancer metastasis preduction
 
 #### Mean Decrease Gini
-```{r warning=F,message=F}
+```{r mdg,warning=F,message=F}
 knitr::kable(rf_imp_90[,.(MeanDecreaseGini=mean(MeanDecreaseGini)),by=(rn)][order(-MeanDecreaseGini)])
 ```
 
 #### Number of times being the split variable   
-```{r warning=F,message=F}
+```{r split,warning=F,message=F}
 knitr::kable(rf_tree_90[,.N,by=`split var`][order(-N)])
 ```
 
 ### The effect of time in metastasis prediction 
 #### Build and evaluate 60 days model
-```{r warning=F,message=F}
+```{r model60,warning=F,message=F}
+LastRecordAfterOP_60_rmna_IsRe<-getDataForModel(TimeVariedData,TimeIndepData,60,"Recurrence")
+LastRecordAfterOP_60_rmna_NotRe<-getDataForModel(TimeVariedData,TimeIndepData,60,"Non.Recurrence")
+
+datalist60<-generate3folds(LastRecordAfterOP_60_rmna_IsRe,LastRecordAfterOP_60_rmna_NotRe,seed)
+training_60<-datalist60[[1]]
+test_60<-datalist60[[2]]
+
+
 glm_perf_60<-NULL
 nb_perf_60<-NULL
-rf_perf_90<-NULL
+rf_perf_60<-NULL
 for (k in 1:n_times){
   for (i in 1:n_folds){
-    glm_perf_90_tmp<-glm_tune_eval(training_90,test_90,i,k,seed,trc)
-    glm_perf_90<-rbind(glm_perf_90,glm_perf_90_tmp)
+    glm_perf_60_tmp<-glm_tune_eval(training_60,test_60,i,k,seed,trc)
+    glm_perf_60<-rbind(glm_perf_60,glm_perf_60_tmp)
   }
 }
-glm_perf_90$Days_before<-"90"
+glm_perf_60$Days_before<-"60"
 
 for (k in 1:n_times){
   for (i in 1:n_folds){
-    nb_perf_90_tmp<-nb_tune_eval(training_90,test_90,i,k,seed,trc)
-    nb_perf_90<-rbind(nb_perf_90,nb_perf_90_tmp)
+    nb_perf_60_tmp<-nb_tune_eval(training_60,test_60,i,k,seed,trc)
+    nb_perf_60<-rbind(nb_perf_60,nb_perf_60_tmp)
   }
 }
-nb_perf_90$Days_before<-"90"
+nb_perf_60$Days_before<-"60"
 
 for (k in 1:n_times){
   for (i in 1:n_folds){
-    rf_temp_com<-rf_tune_eval(training_90,test_90,i,k,seed,trc)
-    rf_perf_90<-rbind(rf_perf_90,rf_temp_com[[1]])
+    rf_temp_com<-rf_tune_eval(training_60,test_60,i,k,seed,trc)
+    rf_perf_60<-rbind(rf_perf_60,rf_temp_com[[1]])
   }
 }
-rf_perf_90$Days_before<-"90"
+rf_perf_60$Days_before<-"60"
 ```
 #### Build and evaluate 30 days model
+```{r model30,warning=F,message=F}
+LastRecordAfterOP_30_rmna_IsRe<-getDataForModel(TimeVariedData,TimeIndepData,30,"Recurrence")
+LastRecordAfterOP_30_rmna_NotRe<-getDataForModel(TimeVariedData,TimeIndepData,30,"Non.Recurrence")
 
+datalist30<-generate3folds(LastRecordAfterOP_30_rmna_IsRe,LastRecordAfterOP_30_rmna_NotRe,seed)
+training_30<-datalist30[[1]]
+test_30<-datalist30[[2]]
+
+glm_perf_30<-NULL
+nb_perf_30<-NULL
+rf_perf_30<-NULL
+for (k in 1:n_times){
+  for (i in 1:n_folds){
+    glm_perf_30_tmp<-glm_tune_eval(training_30,test_30,i,k,seed,trc)
+    glm_perf_30<-rbind(glm_perf_30,glm_perf_30_tmp)
+  }
+}
+glm_perf_30$Days_before<-"30"
+
+for (k in 1:n_times){
+  for (i in 1:n_folds){
+    nb_perf_30_tmp<-nb_tune_eval(training_30,test_30,i,k,seed,trc)
+    nb_perf_30<-rbind(nb_perf_30,nb_perf_30_tmp)
+  }
+}
+nb_perf_30$Days_before<-"30"
+
+for (k in 1:n_times){
+  for (i in 1:n_folds){
+    rf_temp_com<-rf_tune_eval(training_30,test_30,i,k,seed,trc)
+    rf_perf_30<-rbind(rf_perf_30,rf_temp_com[[1]])
+  }
+}
+rf_perf_30$Days_before<-"30"
+```
 #### Compare models
-```{r eval=F}
-summary(aov(AUC~Model,data=AUC[Days_before=="60"]))
-TukeyHSD(aov(AUC~Model,data=AUC[Days_before=="60"]))
+```{r time.model,warning=F,message=F}
+AUCTime <- rbind(glm_perf_90,nb_perf_90,rf_perf_90,
+                 glm_perf_60,nb_perf_60,rf_perf_60,
+                 glm_perf_30,nb_perf_30,rf_perf_30) %>% 
+  dplyr::select(Model,Days_before,folds,times,AUC) %>% unique()
+AUCDFTime<-AUCTime %>% group_by(Model,Days_before) %>% 
+  summarise(Count=n(),Mean=round(mean(AUC),digit=3),
+            SE=round(sd(AUC)/n(),digit=4))
+knitr::kable(AUCDFTime)
 
-summary(aov(AUC~Model,data=AUC[Days_before=="30"]))
-TukeyHSD(aov(AUC~Model,data=AUC[Days_before=="30"]))
+summary(aov(AUC~Model,data=AUCTime[Days_before=="60"]))
+TukeyHSD(aov(AUC~Model,data=AUCTime[Days_before=="60"]))
 
-summary(aov(AUC~Days_before,data=AUC[Model=="RF"]))
-TukeyHSD(aov(AUC~Days_before,data=AUC[Model=="RF"]))
+summary(aov(AUC~Model,data=AUCTime[Days_before=="30"]))
+TukeyHSD(aov(AUC~Model,data=AUCTime[Days_before=="30"]))
+
+summary(aov(AUC~Days_before,data=AUCTime[Model=="RF"]))
+TukeyHSD(aov(AUC~Days_before,data=AUCTime[Model=="RF"]))
 ```

@@ -114,3 +114,11 @@ generate3folds<-function(cleanDataRe,cleanDataNotRe,seed){
   test_90<-rbind(test_1,test_2,test_3)
   list(training=training_90,test=test_90)
 }
+getDataForModel<-function(timeVariedData,timeIndepData,days,isRe){
+  OverndData <- timeVariedData %>% filter(Index_duration>days) %>% 
+    arrange(ID,LabName,Index_duration) %>% group_by(ID,LabName) %>% slice(1)
+  LabWidend <- spread(OverndData %>% dplyr::select(ID,LabName,LabValue),key=LabName,value=LabValue)
+  LastRecordAfterOP_nday<-inner_join(timeIndepData,LabWidend, by = "ID")
+  LastRecordAfterOP_nday_rmna <- LastRecordAfterOP_nday %>% filter(complete.cases(LastRecordAfterOP_nday) & IsRe==isRe)
+  LastRecordAfterOP_nday_rmna
+}

@@ -163,13 +163,8 @@ trc<-trainControl(method = "cv", number = n_folds,
 ### Get completed data 3 months before the index date
 
 ``` r
-Over90dData <- TimeVariedData %>% filter(Index_duration>90) %>% 
-  arrange(ID,LabName,Index_duration) %>% group_by(ID,LabName) %>% slice(1)
-LabWide90d <- spread(Over90dData %>% select(ID,LabName,LabValue),key=LabName,value=LabValue)
-LastRecordAfterOP_90<-inner_join(TimeIndepData,LabWide90d, by = "ID")
-LastRecordAfterOP_90_rmna <- LastRecordAfterOP_90 %>% filter(complete.cases(LastRecordAfterOP_90))
-LastRecordAfterOP_90_rmna_IsRe<-LastRecordAfterOP_90_rmna %>% filter(IsRe=="Recurrence")
-LastRecordAfterOP_90_rmna_NotRe<-LastRecordAfterOP_90_rmna%>% filter(IsRe=="Non.Recurrence")
+LastRecordAfterOP_90_rmna_IsRe<-getDataForModel(TimeVariedData,TimeIndepData,90,"Recurrence")
+LastRecordAfterOP_90_rmna_NotRe<-getDataForModel(TimeVariedData,TimeIndepData,90,"Non.Recurrence")
 nrow(LastRecordAfterOP_90_rmna_IsRe)
 ```
 
@@ -241,7 +236,7 @@ Results
 AUC <- rbind(glm_perf_90,nb_perf_90,rf_perf_90) %>% dplyr::select(Model,Days_before,folds,times,AUC) %>% unique()
 AUCDF<-AUC %>% group_by(Model,Days_before) %>% 
   summarise(Count=n(),Mean=round(mean(AUC),digit=3),
-            SE=round(sd(AUC)/150,digit=4))
+            SE=round(sd(AUC)/n(),digit=4))
 knitr::kable(AUCDF)
 ```
 
@@ -357,15 +352,179 @@ knitr::kable(rf_tree_90[,.N,by=`split var`][order(-N)])
 
 ### The effect of time in metastasis prediction
 
-#### 
+#### Build and evaluate 60 days model
 
 ``` r
-summary(aov(AUC~Model,data=AUC[Days_before=="60"]))
-TukeyHSD(aov(AUC~Model,data=AUC[Days_before=="60"]))
+LastRecordAfterOP_60_rmna_IsRe<-getDataForModel(TimeVariedData,TimeIndepData,60,"Recurrence")
+LastRecordAfterOP_60_rmna_NotRe<-getDataForModel(TimeVariedData,TimeIndepData,60,"Non.Recurrence")
 
-summary(aov(AUC~Model,data=AUC[Days_before=="30"]))
-TukeyHSD(aov(AUC~Model,data=AUC[Days_before=="30"]))
+datalist60<-generate3folds(LastRecordAfterOP_60_rmna_IsRe,LastRecordAfterOP_60_rmna_NotRe,seed)
+training_60<-datalist60[[1]]
+test_60<-datalist60[[2]]
 
-summary(aov(AUC~Days_before,data=AUC[Model=="RF"]))
-TukeyHSD(aov(AUC~Days_before,data=AUC[Model=="RF"]))
+
+glm_perf_60<-NULL
+nb_perf_60<-NULL
+rf_perf_60<-NULL
+for (k in 1:n_times){
+  for (i in 1:n_folds){
+    glm_perf_60_tmp<-glm_tune_eval(training_60,test_60,i,k,seed,trc)
+    glm_perf_60<-rbind(glm_perf_60,glm_perf_60_tmp)
+  }
+}
+glm_perf_60$Days_before<-"60"
+
+for (k in 1:n_times){
+  for (i in 1:n_folds){
+    nb_perf_60_tmp<-nb_tune_eval(training_60,test_60,i,k,seed,trc)
+    nb_perf_60<-rbind(nb_perf_60,nb_perf_60_tmp)
+  }
+}
+nb_perf_60$Days_before<-"60"
+
+for (k in 1:n_times){
+  for (i in 1:n_folds){
+    rf_temp_com<-rf_tune_eval(training_60,test_60,i,k,seed,trc)
+    rf_perf_60<-rbind(rf_perf_60,rf_temp_com[[1]])
+  }
+}
+rf_perf_60$Days_before<-"60"
 ```
+
+#### Build and evaluate 30 days model
+
+``` r
+LastRecordAfterOP_30_rmna_IsRe<-getDataForModel(TimeVariedData,TimeIndepData,30,"Recurrence")
+LastRecordAfterOP_30_rmna_NotRe<-getDataForModel(TimeVariedData,TimeIndepData,30,"Non.Recurrence")
+
+datalist30<-generate3folds(LastRecordAfterOP_30_rmna_IsRe,LastRecordAfterOP_30_rmna_NotRe,seed)
+training_30<-datalist30[[1]]
+test_30<-datalist30[[2]]
+
+glm_perf_30<-NULL
+nb_perf_30<-NULL
+rf_perf_30<-NULL
+for (k in 1:n_times){
+  for (i in 1:n_folds){
+    glm_perf_30_tmp<-glm_tune_eval(training_30,test_30,i,k,seed,trc)
+    glm_perf_30<-rbind(glm_perf_30,glm_perf_30_tmp)
+  }
+}
+glm_perf_30$Days_before<-"30"
+
+for (k in 1:n_times){
+  for (i in 1:n_folds){
+    nb_perf_30_tmp<-nb_tune_eval(training_30,test_30,i,k,seed,trc)
+    nb_perf_30<-rbind(nb_perf_30,nb_perf_30_tmp)
+  }
+}
+nb_perf_30$Days_before<-"30"
+
+for (k in 1:n_times){
+  for (i in 1:n_folds){
+    rf_temp_com<-rf_tune_eval(training_30,test_30,i,k,seed,trc)
+    rf_perf_30<-rbind(rf_perf_30,rf_temp_com[[1]])
+  }
+}
+rf_perf_30$Days_before<-"30"
+```
+
+#### Compare models
+
+``` r
+AUCTime <- rbind(glm_perf_90,nb_perf_90,rf_perf_90,
+                 glm_perf_60,nb_perf_60,rf_perf_60,
+                 glm_perf_30,nb_perf_30,rf_perf_30) %>% 
+  dplyr::select(Model,Days_before,folds,times,AUC) %>% unique()
+AUCDFTime<-AUCTime %>% group_by(Model,Days_before) %>% 
+  summarise(Count=n(),Mean=round(mean(AUC),digit=3),
+            SE=round(sd(AUC)/n(),digit=4))
+knitr::kable(AUCDFTime)
+```
+
+| Model | Days\_before |  Count|   Mean|      SE|
+|:------|:-------------|------:|------:|-------:|
+| GLM   | 30           |    150|  0.608|  0.0010|
+| GLM   | 60           |    150|  0.629|  0.0007|
+| GLM   | 90           |    150|  0.581|  0.0006|
+| NB    | 30           |    150|  0.762|  0.0008|
+| NB    | 60           |    150|  0.787|  0.0005|
+| NB    | 90           |    150|  0.693|  0.0006|
+| RF    | 30           |    150|  0.783|  0.0007|
+| RF    | 60           |    150|  0.794|  0.0005|
+| RF    | 90           |    150|  0.744|  0.0006|
+
+``` r
+summary(aov(AUC~Model,data=AUCTime[Days_before=="60"]))
+```
+
+    ##              Df Sum Sq Mean Sq F value              Pr(>F)    
+    ## Model         2  2.611  1.3054   174.3 <0.0000000000000002 ***
+    ## Residuals   447  3.347  0.0075                                
+    ## ---
+    ## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+
+``` r
+TukeyHSD(aov(AUC~Model,data=AUCTime[Days_before=="60"]))
+```
+
+    ##   Tukey multiple comparisons of means
+    ##     95% family-wise confidence level
+    ## 
+    ## Fit: aov(formula = AUC ~ Model, data = AUCTime[Days_before == "60"])
+    ## 
+    ## $Model
+    ##               diff        lwr        upr     p adj
+    ## NB-GLM 0.157848570  0.1343508 0.18134639 0.0000000
+    ## RF-GLM 0.165069594  0.1415718 0.18856741 0.0000000
+    ## RF-NB  0.007221024 -0.0162768 0.03071884 0.7502036
+
+``` r
+summary(aov(AUC~Model,data=AUCTime[Days_before=="30"]))
+```
+
+    ##              Df Sum Sq Mean Sq F value              Pr(>F)    
+    ## Model         2  2.722  1.3612   78.96 <0.0000000000000002 ***
+    ## Residuals   447  7.705  0.0172                                
+    ## ---
+    ## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+
+``` r
+TukeyHSD(aov(AUC~Model,data=AUCTime[Days_before=="30"]))
+```
+
+    ##   Tukey multiple comparisons of means
+    ##     95% family-wise confidence level
+    ## 
+    ## Fit: aov(formula = AUC ~ Model, data = AUCTime[Days_before == "30"])
+    ## 
+    ## $Model
+    ##              diff        lwr        upr    p adj
+    ## NB-GLM 0.15342487  0.1177742 0.18907550 0.000000
+    ## RF-GLM 0.17453459  0.1388840 0.21018522 0.000000
+    ## RF-NB  0.02110973 -0.0145409 0.05676036 0.345719
+
+``` r
+summary(aov(AUC~Days_before,data=AUCTime[Model=="RF"]))
+```
+
+    ##              Df Sum Sq Mean Sq F value    Pr(>F)    
+    ## Days_before   2  0.208 0.10376   11.45 0.0000141 ***
+    ## Residuals   447  4.050 0.00906                      
+    ## ---
+    ## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+
+``` r
+TukeyHSD(aov(AUC~Days_before,data=AUCTime[Model=="RF"]))
+```
+
+    ##   Tukey multiple comparisons of means
+    ##     95% family-wise confidence level
+    ## 
+    ## Fit: aov(formula = AUC ~ Days_before, data = AUCTime[Model == "RF"])
+    ## 
+    ## $Days_before
+    ##              diff         lwr         upr     p adj
+    ## 60-30  0.01106369 -0.01478152  0.03690889 0.5730428
+    ## 90-30 -0.03900457 -0.06484978 -0.01315937 0.0012421
+    ## 90-60 -0.05006826 -0.07591346 -0.02422305 0.0000201
