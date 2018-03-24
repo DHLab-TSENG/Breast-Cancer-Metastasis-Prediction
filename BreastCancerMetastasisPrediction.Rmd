@@ -152,12 +152,14 @@ AUCDF<-AUC %>% group_by(Model,Days_before) %>%
             SE=round(sd(AUC)/n(),digit=4))
 knitr::kable(AUCDF)
 
-summary(aov(AUC~Model,data=AUC[Days_before=="90"]))
-TukeyHSD(aov(AUC~Model,data=AUC[Days_before=="90"]))
+aov90<-summary(aov(AUC~Model,data=AUC[Days_before=="90"]))
+knitr::kable(aov90[[1]])
+Tukey90<-TukeyHSD(aov(AUC~Model,data=AUC[Days_before=="90"]))
+knitr::kable(Tukey90$Model)
 
 rf_sen_75 <- rf_perf_90[sen>=0.70 & spe>0][order(sen)][, .SD[1], by=.(folds,times)]
 rf_sen_75 %>% summarize(model="Rf",sen = round(mean(sen),3), spe=round(mean(spe),3), 
-                        ppv=round(mean(ppv),3), npv=round(mean(npv),3))
+                        ppv=round(mean(ppv),3), npv=round(mean(npv),3)) %>% knitr::kable()
 ```
 
 ### Important features for breast cancer metastasis preduction
@@ -180,6 +182,8 @@ knitr::kable(rf_tree_90[,.N,by=`split var`][order(-N)] %>% head(10),row.names=T)
 ```{r model60,warning=F,message=F,cache=TRUE}
 LastRecordAfterOP_60_rmna_IsRe<-getDataForModel(TimeVariedData,TimeIndepData,60,"Recurrence")
 LastRecordAfterOP_60_rmna_NotRe<-getDataForModel(TimeVariedData,TimeIndepData,60,"Non.Recurrence")
+nrow(LastRecordAfterOP_60_rmna_IsRe)
+nrow(LastRecordAfterOP_60_rmna_NotRe)
 
 datalist60<-generate3folds(LastRecordAfterOP_60_rmna_IsRe,LastRecordAfterOP_60_rmna_NotRe,seed)
 training_60<-datalist60[[1]]
@@ -217,7 +221,8 @@ rf_perf_60$Days_before<-"60"
 ```{r model30,warning=F,message=F,cache=TRUE}
 LastRecordAfterOP_30_rmna_IsRe<-getDataForModel(TimeVariedData,TimeIndepData,30,"Recurrence")
 LastRecordAfterOP_30_rmna_NotRe<-getDataForModel(TimeVariedData,TimeIndepData,30,"Non.Recurrence")
-
+nrow(LastRecordAfterOP_30_rmna_IsRe)
+nrow(LastRecordAfterOP_30_rmna_NotRe)
 datalist30<-generate3folds(LastRecordAfterOP_30_rmna_IsRe,LastRecordAfterOP_30_rmna_NotRe,seed)
 training_30<-datalist30[[1]]
 test_30<-datalist30[[2]]
@@ -271,7 +276,7 @@ knitr::kable(Tukey30$Model)
 aovRF<-summary(aov(AUC~Days_before,data=AUCTime[Model=="RF"]))
 knitr::kable(aovRF[[1]])
 TukeyRF<-TukeyHSD(aov(AUC~Days_before,data=AUCTime[Model=="RF"]))
-knitr::kable(TukeyRF$Model)
+knitr::kable(TukeyRF$Days_before)
 
 ```
 

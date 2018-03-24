@@ -20,9 +20,9 @@ library(tableone)
 
 ### Load all functions
 
+The ModelFunction.R can be download from [GitHub](https://github.com/DHLab-CGU/Breast-Cancer-Metastasis-Prediction/blob/master/ModelFunction.R).
+
 ``` r
-# The ModelFunction.R can be download from GitHub
-# https://github.com/DHLab-CGU/Breast-Cancer-Metastasis-Prediction/blob/master/ModelFunction.R
 source('ModelFunction.R')
 ```
 
@@ -31,7 +31,7 @@ Data load and pre-process
 
 ### Load breast cancer data for model development
 
-The clinical data used in the manuscript is available from the Ethics Committee of the Chang Gung Memorial Hospital for researchers who meet the criteria for access to confidential data.
+The clinical data is available from the Ethics Committee of the Chang Gung Memorial Hospital for researchers who meet the criteria for access to confidential data.
 
 ``` r
 TimeIndepData<-readRDS('TimeIndepData.rds')
@@ -249,45 +249,45 @@ knitr::kable(AUCDF)
 | RF    | 90           |    150|  0.744|  0.0006|
 
 ``` r
-summary(aov(AUC~Model,data=AUC[Days_before=="90"]))
+aov90<-summary(aov(AUC~Model,data=AUC[Days_before=="90"]))
+knitr::kable(aov90[[1]])
 ```
 
-    ##              Df Sum Sq Mean Sq F value              Pr(>F)    
-    ## Model         2  2.093  1.0467   123.4 <0.0000000000000002 ***
-    ## Residuals   447  3.792  0.0085                                
-    ## ---
-    ## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+|           |   Df|    Sum Sq|    Mean Sq|   F value|  Pr(&gt;F)|
+|-----------|----:|---------:|----------:|---------:|----------:|
+| Model     |    2|  2.093365|  1.0466823|  123.3846|          0|
+| Residuals |  447|  3.791940|  0.0084831|        NA|         NA|
 
 ``` r
-TukeyHSD(aov(AUC~Model,data=AUC[Days_before=="90"]))
+Tukey90<-TukeyHSD(aov(AUC~Model,data=AUC[Days_before=="90"]))
+knitr::kable(Tukey90$Model)
 ```
 
-    ##   Tukey multiple comparisons of means
-    ##     95% family-wise confidence level
-    ## 
-    ## Fit: aov(formula = AUC ~ Model, data = AUC[Days_before == "90"])
-    ## 
-    ## $Model
-    ##             diff        lwr       upr     p adj
-    ## NB-GLM 0.1123532 0.08734401 0.1373624 0.0000000
-    ## RF-GLM 0.1632570 0.13824781 0.1882662 0.0000000
-    ## RF-NB  0.0509038 0.02589460 0.0759130 0.0000069
+|        |       diff|        lwr|        upr|      p adj|
+|--------|----------:|----------:|----------:|----------:|
+| NB-GLM |  0.1123532|  0.0873440|  0.1373624|  0.0000000|
+| RF-GLM |  0.1632570|  0.1382478|  0.1882662|  0.0000000|
+| RF-NB  |  0.0509038|  0.0258946|  0.0759130|  0.0000069|
 
 ``` r
 rf_sen_75 <- rf_perf_90[sen>=0.70 & spe>0][order(sen)][, .SD[1], by=.(folds,times)]
 rf_sen_75 %>% summarize(model="Rf",sen = round(mean(sen),3), spe=round(mean(spe),3), 
-                        ppv=round(mean(ppv),3), npv=round(mean(npv),3))
+                        ppv=round(mean(ppv),3), npv=round(mean(npv),3)) %>% knitr::kable()
 ```
 
-    ##   model   sen   spe   ppv   npv
-    ## 1    Rf 0.797 0.617 0.278 0.948
+| model |    sen|    spe|    ppv|    npv|
+|:------|------:|------:|------:|------:|
+| Rf    |  0.797|  0.617|  0.278|  0.948|
 
 ### Important features for breast cancer metastasis preduction
 
 #### Mean Decrease Gini
 
 ``` r
-knitr::kable(rf_imp_90[,.(MeanDecreaseGini=mean(MeanDecreaseGini)),by=(rn)][order(-MeanDecreaseGini)] %>% head(10),row.names=T)
+knitr::kable(
+  rf_imp_90[,.(MeanDecreaseGini=mean(MeanDecreaseGini)),by=(rn)][order(-MeanDecreaseGini)] %>% 
+    head(10), 
+  row.names=T)
 ```
 
 |     | rn         |  MeanDecreaseGini|
@@ -329,7 +329,18 @@ knitr::kable(rf_tree_90[,.N,by=`split var`][order(-N)] %>% head(10),row.names=T)
 ``` r
 LastRecordAfterOP_60_rmna_IsRe<-getDataForModel(TimeVariedData,TimeIndepData,60,"Recurrence")
 LastRecordAfterOP_60_rmna_NotRe<-getDataForModel(TimeVariedData,TimeIndepData,60,"Non.Recurrence")
+nrow(LastRecordAfterOP_60_rmna_IsRe)
+```
 
+    ## [1] 19
+
+``` r
+nrow(LastRecordAfterOP_60_rmna_NotRe)
+```
+
+    ## [1] 125
+
+``` r
 datalist60<-generate3folds(LastRecordAfterOP_60_rmna_IsRe,LastRecordAfterOP_60_rmna_NotRe,seed)
 training_60<-datalist60[[1]]
 test_60<-datalist60[[2]]
@@ -368,7 +379,18 @@ rf_perf_60$Days_before<-"60"
 ``` r
 LastRecordAfterOP_30_rmna_IsRe<-getDataForModel(TimeVariedData,TimeIndepData,30,"Recurrence")
 LastRecordAfterOP_30_rmna_NotRe<-getDataForModel(TimeVariedData,TimeIndepData,30,"Non.Recurrence")
+nrow(LastRecordAfterOP_30_rmna_IsRe)
+```
 
+    ## [1] 21
+
+``` r
+nrow(LastRecordAfterOP_30_rmna_NotRe)
+```
+
+    ## [1] 125
+
+``` r
 datalist30<-generate3folds(LastRecordAfterOP_30_rmna_IsRe,LastRecordAfterOP_30_rmna_NotRe,seed)
 training_30<-datalist30[[1]]
 test_30<-datalist30[[2]]
@@ -480,8 +502,14 @@ knitr::kable(aovRF[[1]])
 
 ``` r
 TukeyRF<-TukeyHSD(aov(AUC~Days_before,data=AUCTime[Model=="RF"]))
-knitr::kable(TukeyRF$Model)
+knitr::kable(TukeyRF$Days_before)
 ```
+
+|       |        diff|         lwr|         upr|      p adj|
+|-------|-----------:|-----------:|-----------:|----------:|
+| 60-30 |   0.0110637|  -0.0147815|   0.0369089|  0.5730428|
+| 90-30 |  -0.0390046|  -0.0648498|  -0.0131594|  0.0012421|
+| 90-60 |  -0.0500683|  -0.0759135|  -0.0242231|  0.0000201|
 
 ### Contact
 
