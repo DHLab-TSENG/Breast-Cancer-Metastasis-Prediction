@@ -244,6 +244,9 @@ LastRecordAfterOP <- merge(LastRecordAfterOP,CA153_Last,all.x = T,by="ID")
 LastRecordAfterOP <- merge(LastRecordAfterOP,CEA_Last,all.x = T,by="ID")
 LastRecordAfterOP <- merge(LastRecordAfterOP,HER2_Last,all.x = T,by="ID")
 
+LastRecordAfterOP <- LastRecordAfterOP[ID!="1798196"] #特例 移除
+
+
 rm(over0days,CA153_Last,CEA_Last,HER2_Last)
 
 vars <- c("OPAge","pTi","pNi","pMi","Tissue.ER","Tissue.PR","Tissue.HER2","CA153","CEA","HER2","Index_duration") 
