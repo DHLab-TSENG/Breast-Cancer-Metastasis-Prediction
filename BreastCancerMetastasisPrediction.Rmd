@@ -1,5 +1,5 @@
 ---
-title: "Predicting Breast Cancer Metastasis Using Clinicopathological Data and Machine Learning Technologies"
+title: "Predicting breast cancer metastasis by using clinicopathological data and machine learning technologies"
 author: Yi-Ju Tseng, Chuang-En Huang, Po-Yin Lai, Yu-Chen Sun, Chiao-Ni Wen, Hsin-Yao Wang, and Jang-Jih Lu
 institute: "Chang Gung University"
 output: github_document
@@ -13,12 +13,8 @@ options(scipen = 999)
 ### Load all librarys
 ```{r library.load, warning=F,message=F}
 library(data.table)
-library(ggplot2)
-library(lubridate)
 library(dplyr)
 library(tidyr)
-library(ROCR)
-library(caret)
 library(tableone)
 ```
 ### Load all functions
@@ -27,18 +23,16 @@ The ModelFunction.R can be download from [GitHub](https://github.com/DHLab-CGU/B
 source('ModelFunction.R')
 ```
 
-## Data load and pre-process
+## Load and pre-process the data
 ### Load breast cancer data for model development
 The clinical data is available from the Ethics Committee of the Chang Gung Memorial Hospital for researchers who meet the criteria for access to confidential data.
 ```{r data.load, warning=F}
 TimeIndepData<-readRDS('TimeIndepData.rds')
-str(dplyr::select(TimeIndepData,-ID))
 TimeVariedData<-readRDS('TimeVariedData.rds')
-str(dplyr::select(TimeVariedData,-ID))
 ```
 
-### T stage code conversion
-
+### Convert T stage code 
+**Table 2.** Conversion table of T stages 
 ```{r code.conversion,warning=F}
 TimeIndepData[pTi %in% c('4a','4b','4c','4d'),pTi:='8']
 TimeIndepData[pTi=='3',pTi:='7']
@@ -57,7 +51,16 @@ cols <- c("pTi", "pNi", "pMi", "Tissue.ER", "Tissue.PR", "Tissue.HER2")
 TimeIndepData[, c(cols) := lapply(.SD, as.factor), .SDcols= cols]
 ```
 
+### Breast cancer data quick view
+```{r data.look, warning=F}
+# For privacy reasons, we drop identity column 
+str(dplyr::select(TimeIndepData,-ID)) 
+# For privacy reasons, we drop identity column 
+str(dplyr::select(TimeVariedData,-ID))
+```
+
 ## Patient characteristics
+**Table 3.** Patient characteristics in case and control groups
 ```{r tableone,warning=F}
 LastData <- TimeVariedData[order(ID,LabName,-RCVDAT)][,.SD[c(1)],by=.(ID,LabName)]
 LabWide <- spread(LastData[,.(ID,LabName,LabValue)],key=LabName,value=LabValue)
@@ -77,7 +80,7 @@ ALL_tableOneDF<-data.table(as.matrix(print(ALL_tableOne,nonnormal= "Index_durati
 knitr::kable(ALL_tableOneDF)
 ```
 
-## Build the model to predict breast cancer metastasis at least 3 months in advance
+## Built the model to predict breast cancer metastasis at least 3 months in advance
 
 ### Set parameters
 ```{r setpar}
@@ -88,7 +91,7 @@ trc<-trainControl(method = "cv", number = n_folds,
                   classProbs=TRUE, summaryFunction = twoClassSummary)
 ```
 
-### Get completed data 3 months before the index date
+### Get completed data 90 days before the index date
 ```{r data3months,warning=F,message=F}
 LastRecordAfterOP_90_rmna_IsRe<-getDataForModel(TimeVariedData,TimeIndepData,90,"Recurrence")
 LastRecordAfterOP_90_rmna_NotRe<-getDataForModel(TimeVariedData,TimeIndepData,90,"Non.Recurrence")
@@ -103,7 +106,7 @@ training_90<-datalist[[1]]
 test_90<-datalist[[2]]
 ```
 
-### Model tuning and evaluation - logistic regression
+### Model development and evaluation - logistic regression
 ```{r glm90,warning=F,message=F,cache=TRUE}
 glm_perf_90<-NULL
 for (k in 1:n_times){
@@ -115,7 +118,7 @@ for (k in 1:n_times){
 glm_perf_90$Days_before<-"90"
 ```
 
-### Model tuning and evaluation - Naive bayes
+### Model development and evaluation - Naive bayes
 ```{r nb90,warning=F,message=F,cache=TRUE}
 nb_perf_90<-NULL
 for (k in 1:n_times){
@@ -127,7 +130,7 @@ for (k in 1:n_times){
 nb_perf_90$Days_before<-"90"
 ```
 
-### Model tuning and evaluation - random forest
+### Model development and evaluation - random forest
 ```{r rf90,warning=F,message=F,cache=TRUE}
 rf_perf_90<-NULL
 rf_tree_90<-NULL
@@ -144,7 +147,7 @@ rf_perf_90$Days_before<-"90"
 ```
 
 ## Results
-### Prediction model evaluation
+### Performance of predictive models
 ```{r AUC90}
 AUC <- rbind(glm_perf_90,nb_perf_90,rf_perf_90) %>% dplyr::select(Model,Days_before,folds,times,AUC) %>% unique()
 AUCDF<-AUC %>% group_by(Model,Days_before) %>% 
@@ -162,9 +165,9 @@ rf_sen_75 %>% summarize(model="Rf",sen = round(mean(sen),3), spe=round(mean(spe)
                         ppv=round(mean(ppv),3), npv=round(mean(npv),3)) %>% knitr::kable()
 ```
 
-### Important features for breast cancer metastasis preduction
+### Important features for breast cancer metastasis prediction
 
-#### Mean Decrease Gini
+#### Mean decrease Gini
 ```{r mdg,warning=F,message=F}
 knitr::kable(
   rf_imp_90[,.(MeanDecreaseGini=mean(MeanDecreaseGini)),by=(rn)][order(-MeanDecreaseGini)] %>% 
@@ -172,13 +175,13 @@ knitr::kable(
   row.names=T)
 ```
 
-#### Number of times being the split variable   
+#### Number of times a variable became a split variable 
 ```{r split,warning=F,message=F}
 knitr::kable(rf_tree_90[,.N,by=`split var`][order(-N)] %>% head(10),row.names=T)
 ```
 
-### The effect of time in metastasis prediction 
-#### Build and evaluate 60 days model
+### Effect of time on metastasis prediction 
+#### Built and evaluate 60-day model
 ```{r model60,warning=F,message=F,cache=TRUE}
 LastRecordAfterOP_60_rmna_IsRe<-getDataForModel(TimeVariedData,TimeIndepData,60,"Recurrence")
 LastRecordAfterOP_60_rmna_NotRe<-getDataForModel(TimeVariedData,TimeIndepData,60,"Non.Recurrence")
@@ -217,7 +220,8 @@ for (k in 1:n_times){
 }
 rf_perf_60$Days_before<-"60"
 ```
-#### Build and evaluate 30 days model
+
+#### Built and evaluate 30-day model
 ```{r model30,warning=F,message=F,cache=TRUE}
 LastRecordAfterOP_30_rmna_IsRe<-getDataForModel(TimeVariedData,TimeIndepData,30,"Recurrence")
 LastRecordAfterOP_30_rmna_NotRe<-getDataForModel(TimeVariedData,TimeIndepData,30,"Non.Recurrence")
@@ -254,7 +258,7 @@ for (k in 1:n_times){
 }
 rf_perf_30$Days_before<-"30"
 ```
-#### Compare models
+#### Compare the pperformance of the 90-day, 60-day, and 30-day models
 ```{r time.model,warning=F,message=F}
 AUCTime <- rbind(glm_perf_90,nb_perf_90,rf_perf_90,
                  glm_perf_60,nb_perf_60,rf_perf_60,

@@ -1,4 +1,4 @@
-Predicting Breast Cancer Metastasis Using Clinicopathological Data and Machine Learning Technologies
+Predicting breast cancer metastasis by using clinicopathological data and machine learning technologies
 ================
 Yi-Ju Tseng, Chuang-En Huang, Po-Yin Lai, Yu-Chen Sun, Chiao-Ni Wen, Hsin-Yao Wang, and Jang-Jih Lu
 
@@ -9,12 +9,8 @@ Set environment
 
 ``` r
 library(data.table)
-library(ggplot2)
-library(lubridate)
 library(dplyr)
 library(tidyr)
-library(ROCR)
-library(caret)
 library(tableone)
 ```
 
@@ -26,8 +22,8 @@ The ModelFunction.R can be download from [GitHub](https://github.com/DHLab-CGU/B
 source('ModelFunction.R')
 ```
 
-Data load and pre-process
--------------------------
+Load and pre-process the data
+-----------------------------
 
 ### Load breast cancer data for model development
 
@@ -35,35 +31,12 @@ The clinical data is available from the Ethics Committee of the Chang Gung Memor
 
 ``` r
 TimeIndepData<-readRDS('TimeIndepData.rds')
-str(dplyr::select(TimeIndepData,-ID))
-```
-
-    ## Classes 'data.table' and 'data.frame':   205 obs. of  10 variables:
-    ##  $ BRNDAT     : Date, format: "1957-01-04" "1964-02-08" ...
-    ##  $ OPAge      : num  43.5 45.8 69.4 69.2 38 ...
-    ##  $ pTi        : chr  "3" "1c" "2" "2" ...
-    ##  $ pNi        : chr  "3" "1" "0" "0" ...
-    ##  $ pMi        : chr  "0" "0" "0" "0" ...
-    ##  $ Tissue.ER  : num  0 1 0 3 0 2 0 0 0 0 ...
-    ##  $ Tissue.PR  : num  0 1 0 2 0 1 2 0 0 2 ...
-    ##  $ Tissue.HER2: num  3 2 3 3 3 3 3 3 3 3 ...
-    ##  $ IsRe       : Factor w/ 2 levels "Non.Recurrence",..: 2 1 2 1 1 1 2 1 1 1 ...
-    ##  $ IndexDAT   : Date, format: "2003-02-21" "2016-09-14" ...
-    ##  - attr(*, ".internal.selfref")=<externalptr>
-
-``` r
 TimeVariedData<-readRDS('TimeVariedData.rds')
-str(dplyr::select(TimeVariedData,-ID))
 ```
 
-    ## Classes 'data.table' and 'data.frame':   4321 obs. of  4 variables:
-    ##  $ LabName       : chr  "CA153" "CEA" "CA153" "CA153" ...
-    ##  $ LabValue      : num  6.7 1.49 18.8 25.2 25.5 14.4 16.3 16.6 13.3 15.4 ...
-    ##  $ RCVDAT        : Date, format: "2003-01-16" "2003-01-16" ...
-    ##  $ Index_duration: num  36 36 2495 2273 2217 ...
-    ##  - attr(*, ".internal.selfref")=<externalptr>
+### Convert T stage code
 
-### T stage code conversion
+**Table 2.** Conversion table of T stages
 
 ``` r
 TimeIndepData[pTi %in% c('4a','4b','4c','4d'),pTi:='8']
@@ -84,8 +57,43 @@ cols <- c("pTi", "pNi", "pMi", "Tissue.ER", "Tissue.PR", "Tissue.HER2")
 TimeIndepData[, c(cols) := lapply(.SD, as.factor), .SDcols= cols]
 ```
 
+### Breast cancer data quick view
+
+``` r
+# For privacy reasons, we drop identity column 
+str(dplyr::select(TimeIndepData,-ID)) 
+```
+
+    ## Classes 'data.table' and 'data.frame':   205 obs. of  10 variables:
+    ##  $ BRNDAT     : Date, format: "1957-01-04" "1964-02-08" ...
+    ##  $ OPAge      : num  43.5 45.8 69.4 69.2 38 ...
+    ##  $ pTi        : Factor w/ 10 levels "0","1","2","3",..: 8 6 7 7 7 1 6 7 9 7 ...
+    ##  $ pNi        : Factor w/ 4 levels "0","1","2","3": 4 2 1 1 3 1 2 1 2 3 ...
+    ##  $ pMi        : Factor w/ 1 level "0": 1 1 1 1 1 1 1 1 1 1 ...
+    ##  $ Tissue.ER  : Factor w/ 4 levels "0","1","2","3": 1 2 1 4 1 3 1 1 1 1 ...
+    ##  $ Tissue.PR  : Factor w/ 4 levels "0","1","2","3": 1 2 1 3 1 2 3 1 1 3 ...
+    ##  $ Tissue.HER2: Factor w/ 4 levels "0","1","2","3": 4 3 4 4 4 4 4 4 4 4 ...
+    ##  $ IsRe       : Factor w/ 2 levels "Non.Recurrence",..: 2 1 2 1 1 1 2 1 1 1 ...
+    ##  $ IndexDAT   : Date, format: "2003-02-21" "2016-09-14" ...
+    ##  - attr(*, ".internal.selfref")=<externalptr> 
+    ##  - attr(*, "index")= int
+
+``` r
+# For privacy reasons, we drop identity column 
+str(dplyr::select(TimeVariedData,-ID))
+```
+
+    ## Classes 'data.table' and 'data.frame':   4321 obs. of  4 variables:
+    ##  $ LabName       : chr  "CA153" "CEA" "CA153" "CA153" ...
+    ##  $ LabValue      : num  6.7 1.49 18.8 25.2 25.5 14.4 16.3 16.6 13.3 15.4 ...
+    ##  $ RCVDAT        : Date, format: "2003-01-16" "2003-01-16" ...
+    ##  $ Index_duration: num  36 36 2495 2273 2217 ...
+    ##  - attr(*, ".internal.selfref")=<externalptr>
+
 Patient characteristics
 -----------------------
+
+**Table 3.** Patient characteristics in case and control groups
 
 ``` r
 LastData <- TimeVariedData[order(ID,LabName,-RCVDAT)][,.SD[c(1)],by=.(ID,LabName)]
@@ -149,7 +157,7 @@ knitr::kable(ALL_tableOneDF)
 | HER2 (mean (sd))                 | 3.64 (2.19)               | 4.65 (4.21)           | 0.077     |         |
 | Index\_duration (median \[IQR\]) | 187.00 \[162.50, 343.00\] | 32.00 \[9.00, 75.00\] | &lt;0.001 | nonnorm |
 
-Build the model to predict breast cancer metastasis at least 3 months in advance
+Built the model to predict breast cancer metastasis at least 3 months in advance
 --------------------------------------------------------------------------------
 
 ### Set parameters
@@ -162,7 +170,7 @@ trc<-trainControl(method = "cv", number = n_folds,
                   classProbs=TRUE, summaryFunction = twoClassSummary)
 ```
 
-### Get completed data 3 months before the index date
+### Get completed data 90 days before the index date
 
 ``` r
 LastRecordAfterOP_90_rmna_IsRe<-getDataForModel(TimeVariedData,TimeIndepData,90,"Recurrence")
@@ -186,7 +194,7 @@ training_90<-datalist[[1]]
 test_90<-datalist[[2]]
 ```
 
-### Model tuning and evaluation - logistic regression
+### Model development and evaluation - logistic regression
 
 ``` r
 glm_perf_90<-NULL
@@ -199,7 +207,7 @@ for (k in 1:n_times){
 glm_perf_90$Days_before<-"90"
 ```
 
-### Model tuning and evaluation - Naive bayes
+### Model development and evaluation - Naive bayes
 
 ``` r
 nb_perf_90<-NULL
@@ -212,7 +220,7 @@ for (k in 1:n_times){
 nb_perf_90$Days_before<-"90"
 ```
 
-### Model tuning and evaluation - random forest
+### Model development and evaluation - random forest
 
 ``` r
 rf_perf_90<-NULL
@@ -232,7 +240,7 @@ rf_perf_90$Days_before<-"90"
 Results
 -------
 
-### Prediction model evaluation
+### Performance of predictive models
 
 ``` r
 AUC <- rbind(glm_perf_90,nb_perf_90,rf_perf_90) %>% dplyr::select(Model,Days_before,folds,times,AUC) %>% unique()
@@ -279,9 +287,9 @@ rf_sen_75 %>% summarize(model="Rf",sen = round(mean(sen),3), spe=round(mean(spe)
 |:------|------:|------:|------:|------:|
 | Rf    |  0.797|  0.617|  0.278|  0.948|
 
-### Important features for breast cancer metastasis preduction
+### Important features for breast cancer metastasis prediction
 
-#### Mean Decrease Gini
+#### Mean decrease Gini
 
 ``` r
 knitr::kable(
@@ -303,7 +311,7 @@ knitr::kable(
 | 9   | pNi1       |         0.2196941|
 | 10  | Tissue.PR1 |         0.1873364|
 
-#### Number of times being the split variable
+#### Number of times a variable became a split variable
 
 ``` r
 knitr::kable(rf_tree_90[,.N,by=`split var`][order(-N)] %>% head(10),row.names=T)
@@ -322,9 +330,9 @@ knitr::kable(rf_tree_90[,.N,by=`split var`][order(-N)] %>% head(10),row.names=T)
 | 9   | Tissue.ER2 |   19|
 | 10  | Tissue.ER3 |   17|
 
-### The effect of time in metastasis prediction
+### Effect of time on metastasis prediction
 
-#### Build and evaluate 60 days model
+#### Built and evaluate 60-day model
 
 ``` r
 LastRecordAfterOP_60_rmna_IsRe<-getDataForModel(TimeVariedData,TimeIndepData,60,"Recurrence")
@@ -374,7 +382,7 @@ for (k in 1:n_times){
 rf_perf_60$Days_before<-"60"
 ```
 
-#### Build and evaluate 30 days model
+#### Built and evaluate 30-day model
 
 ``` r
 LastRecordAfterOP_30_rmna_IsRe<-getDataForModel(TimeVariedData,TimeIndepData,30,"Recurrence")
@@ -423,7 +431,7 @@ for (k in 1:n_times){
 rf_perf_30$Days_before<-"30"
 ```
 
-#### Compare models
+#### Compare the pperformance of the 90-day, 60-day, and 30-day models
 
 ``` r
 AUCTime <- rbind(glm_perf_90,nb_perf_90,rf_perf_90,

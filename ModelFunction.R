@@ -1,3 +1,6 @@
+library(ROCR)
+library(caret)
+
 getPerformance<-function(predClass,fold,time){
   predTable<-data.table(tp=predClass@tp[[1]],fp=predClass@fp[[1]],
                         tn=predClass@tn[[1]],fn=predClass@fn[[1]])
