@@ -10,10 +10,15 @@ getPerformance<-function(predClass,fold,time){
   predTable$spe <- predTable$tn/(predTable$fp+predTable$tn)
   predTable$ppv <- predTable$tp/(predTable$tp+predTable$fp)
   predTable$npv <- predTable$tn/(predTable$fn+predTable$tn)
+  predTable$ACC <- (predTable$tn+predTable$tp)/(predTable$fn+predTable$tn+predTable$tp+predTable$fp)
+  predTable$Youden <- 
+    ((predTable$tn)/(predTable$tn+predTable$fp))+
+    ((predTable$tp)/(predTable$tp+predTable$fn))-1
   AUCdata <- performance(predClass,"auc")
   predTable$AUC<-AUCdata@y.values[[1]]
   predTable
 }
+
 glm_tune_eval<-function(trainingData,testData,fold,time,seed,trcpar){
   trainingData<-data.table(trainingData)
   testData<-data.table(testData)

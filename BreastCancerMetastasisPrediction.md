@@ -1,6 +1,6 @@
 Predicting breast cancer metastasis by using clinicopathological data and machine learning technologies
 ================
-Yi-Ju Tseng, Chuang-En Huang, Po-Yin Lai, Yu-Chen Sun, Chiao-Ni Wen, Hsin-Yao Wang, and Jang-Jih Lu
+Yi-Ju Tseng, Chuan-En Huang, Po-Yin Lai, Yu-Chen Sun, Chiao-Ni Wen, Hsin-Yao Wang, and Jang-Jih Lu
 
 Set environment
 ---------------
@@ -244,6 +244,7 @@ Results
 
 ``` r
 AUC <- rbind(glm_perf_90,nb_perf_90,rf_perf_90) %>% dplyr::select(Model,Days_before,folds,times,AUC) %>% unique()
+
 AUCDF<-AUC %>% group_by(Model,Days_before) %>% 
   summarise(Count=n(),Mean=round(mean(AUC),digit=3),
             SE=round(sd(AUC)/n(),digit=4))
@@ -280,12 +281,47 @@ knitr::kable(Tukey90$Model)
 ``` r
 rf_sen_75 <- rf_perf_90[sen>=0.70 & spe>0][order(sen)][, .SD[1], by=.(folds,times)]
 rf_sen_75 %>% summarize(model="Rf",sen = round(mean(sen),3), spe=round(mean(spe),3), 
-                        ppv=round(mean(ppv),3), npv=round(mean(npv),3)) %>% knitr::kable()
+                        ppv=round(mean(ppv),3), npv=round(mean(npv),3),
+                        acc=round(mean(ACC),3)) %>% knitr::kable()
 ```
 
-| model |    sen|    spe|    ppv|    npv|
-|:------|------:|------:|------:|------:|
-| Rf    |  0.797|  0.617|  0.278|  0.948|
+| model |    sen|    spe|    ppv|    npv|   acc|
+|:------|------:|------:|------:|------:|-----:|
+| Rf    |  0.797|  0.617|  0.278|  0.948|  0.64|
+
+``` r
+rf_sen_YI <- rf_perf_90[order(Youden,decreasing = T)][, .SD[1], by=.(folds,times)]
+rf_sen_YI %>% summarize(model="RF",Count=n(),sen = round(mean(sen),3), spe=round(mean(spe),3), 
+                        ppv=round(mean(ppv),3), npv=round(mean(npv),3),
+                        acc=round(mean(ACC),3),
+                        auc=round(mean(AUC),3))%>% knitr::kable()
+```
+
+| model |  Count|    sen|    spe|    ppv|    npv|    acc|    auc|
+|:------|------:|------:|------:|------:|------:|------:|------:|
+| RF    |    150|  0.802|  0.703|  0.341|  0.965|  0.716|  0.744|
+
+``` r
+nb_sen_YI <- nb_perf_90[order(Youden,decreasing = T)][, .SD[1], by=.(folds,times)]
+nb_sen_YI %>% summarize(model="NB",Count=n(),sen = round(mean(sen),3), spe=round(mean(spe),3), 
+                        ppv=round(mean(ppv),3), npv=round(mean(npv),3),
+                        acc=round(mean(ACC),3))%>% knitr::kable()
+```
+
+| model |  Count|  sen|    spe|    ppv|    npv|    acc|
+|:------|------:|----:|------:|------:|------:|------:|
+| NB    |    150|  0.7|  0.735|  0.388|  0.949|  0.732|
+
+``` r
+glm_sen_YI <- glm_perf_90[order(Youden,decreasing = T)][, .SD[1], by=.(folds,times)]
+glm_sen_YI %>% summarize(model="GLM",Count=n(),sen = round(mean(sen),3), spe=round(mean(spe),3), 
+                        ppv=round(mean(ppv),3), npv=round(mean(npv),3),
+                        acc=round(mean(ACC),3))%>% knitr::kable()
+```
+
+| model |  Count|    sen|    spe|  ppv|    npv|    acc|
+|:------|------:|------:|------:|----:|------:|------:|
+| GLM   |    150|  0.529|  0.688|  NaN|  0.913|  0.667|
 
 ### Important features for breast cancer metastasis prediction
 
