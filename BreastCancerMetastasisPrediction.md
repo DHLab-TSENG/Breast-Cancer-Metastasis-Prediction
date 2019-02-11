@@ -1,6 +1,6 @@
 Predicting breast cancer metastasis by using clinicopathological data and machine learning technologies
 ================
-Yi-Ju Tseng, Chuan-En Huang, Po-Yin Lai, Yu-Chen Sun, Chiao-Ni Wen, Hsin-Yao Wang, and Jang-Jih Lu
+Yi-Ju Tseng, Chuan-En Huang, Chiao-Ni Wen, Po-Yin Lai, Min-Hsien Wu, Yu-Chen Sun, Hsin-Yao Wang, and Jang-Jih Lu
 
 Set environment
 ---------------
