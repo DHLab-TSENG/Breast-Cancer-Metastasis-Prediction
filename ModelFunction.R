@@ -44,8 +44,7 @@ nb_tune_eval<-function(trainingData,testData,fold,time,seed,trcpar){
   Nb <- train(IsRe ~  OPAge + pTi + pNi + Tissue.ER + Tissue.PR + Tissue.HER2 + CA153 + CEA + HER2 ,
               data = downSample(trainingData[training==i],trainingData[training==i]$IsRe),
               method = "naive_bayes", metric = "ROC",
-              trControl = trcpar,
-              tuneGrid = data.frame(fL=0,usekernel=F, adjust=F))
+              trControl = trcpar)
   # Evaluate model
   Nb_pr <- predict(Nb, type="prob", newdata=testData[test==i])[,2]
   Nb_pred <- prediction(Nb_pr,testData[test==i]$IsRe)
@@ -53,6 +52,26 @@ nb_tune_eval<-function(trainingData,testData,fold,time,seed,trcpar){
   Nb_Performance$Model<-"NB"
   Nb_Performance
 }
+
+svm_tune_eval<-function(trainingData,testData,fold,time,seed,trcpar){
+  trainingData<-data.table(trainingData)
+  testData<-data.table(testData)
+  # Tune model
+  set.seed(time+seed)
+  SVM <- train(IsRe ~  OPAge + pTi + pNi + Tissue.ER + Tissue.PR + Tissue.HER2 + CA153 + CEA + HER2 ,
+              data = downSample(trainingData[training==i],trainingData[training==i]$IsRe),
+              method = "svmRadial", metric = "ROC",
+              trControl = trcpar)
+  # https://stackoverflow.com/questions/20461476/svm-with-cross-validation-in-r-using-caret
+  # Evaluate model
+  SVM_pr <- predict(SVM, type="prob", newdata=testData[test==i])[,2]
+  SVM_pred <- prediction(SVM_pr,testData[test==i]$IsRe)
+  SVM_Performance<-getPerformance(SVM_pred,fold,time)
+  SVM_Performance$Model<-"SVM"
+  SVM_Performance
+}
+
+
 rf_tune_eval<-function(trainingData,testData,fold,time,seed,trcpar){
   trainingData<-data.table(trainingData)
   testData<-data.table(testData)
@@ -69,7 +88,7 @@ rf_tune_eval<-function(trainingData,testData,fold,time,seed,trcpar){
   Rf_Performance<-getPerformance(Rf_pred,fold,time)
   Rf_Performance$Model<-"RF"
   
-  TREE<-data.table(getTree(Rf$finalModel,labelVar = TRUE))
+  TREE<-data.table(randomForest::getTree(Rf$finalModel,labelVar = TRUE))
   TREE<-TREE[`split var`!='NA']
   TREE$folds<-fold
   TREE$times<-time
