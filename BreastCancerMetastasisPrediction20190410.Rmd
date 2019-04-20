@@ -168,12 +168,28 @@ AUCDF<-AUC %>% group_by(Model,Days_before) %>%
             SE=round(sd(AUC)/n(),digit=4),Max=max(AUC),Min=min(AUC))
 knitr::kable(AUCDF)
 
+```
+
+### Friedman's test
+```{r Frei90}
+AUC90<-AUC[Days_before=="90"]
+AUC90$Model<-factor(AUC90$Model)
+AUC90$FoldTime<-factor(paste(AUC90$folds,AUC90$times))
+friedman.test(AUC90$AUC,AUC90$Model,AUC90$FoldTime)
+posthoc.friedman.conover.test(AUC90$AUC,AUC90$Model,AUC90$FoldTime, p.adjust="bonferroni")
+```
+
+### ANOVA
+```{r ANOVA90}
 
 aov90<-summary(aov(AUC~Model,data=AUC[Days_before=="90"]))
 knitr::kable(aov90[[1]])
 Tukey90<-TukeyHSD(aov(AUC~Model,data=AUC[Days_before=="90"]))
 knitr::kable(Tukey90$Model)
+```
 
+### Sensitivity and Specificity
+```{r sen90}
 rf_sen_75 <- rf_perf_90[sen>=0.70 & spe>0][order(sen)][, .SD[1], by=.(folds,times)]
 rf_sen_75 %>% summarize(model="Rf",sen = round(mean(sen),3), spe=round(mean(spe),3), 
                         ppv=round(mean(ppv),3), npv=round(mean(npv),3),
@@ -296,8 +312,8 @@ for (k in 1:n_times){
 }
 rf_perf_30$Days_before<-"30"
 ```
-#### Compare the pperformance of the 90-day, 60-day, and 30-day models
-```{r time.model,warning=F,message=F}
+#### Compare the performance of the 90-day, 60-day, and 30-day models
+```{r time.model.data,warning=F,message=F}
 AUCTime <- rbind(glm_perf_90,nb_perf_90,rf_perf_90,
                  glm_perf_60,nb_perf_60,rf_perf_60,
                  glm_perf_30,nb_perf_30,rf_perf_30) %>% 
@@ -306,6 +322,32 @@ AUCDFTime<-AUCTime %>% group_by(Model,Days_before) %>%
   summarise(Count=n(),Mean=round(mean(AUC),digit=3),
             SE=round(sd(AUC)/n(),digit=4))
 knitr::kable(AUCDFTime)
+```
+
+#### Friedman's test
+```{r FreiTime}
+AUCTime60<-AUCTime[Days_before=="60"]
+AUCTime60$Model<-factor(AUCTime60$Model)
+AUCTime60$FoldTime<-factor(paste(AUCTime60$folds,AUCTime60$times))
+friedman.test(AUCTime60$AUC,AUCTime60$Model,AUCTime60$FoldTime)
+posthoc.friedman.conover.test(AUCTime60$AUC,AUCTime60$Model,AUCTime60$FoldTime, p.adjust="bonferroni")
+
+AUCTime30<-AUCTime[Days_before=="30"]
+AUCTime30$Model<-factor(AUCTime30$Model)
+AUCTime30$FoldTime<-factor(paste(AUCTime30$folds,AUCTime30$times))
+friedman.test(AUCTime30$AUC,AUCTime30$Model,AUCTime30$FoldTime)
+posthoc.friedman.conover.test(AUCTime30$AUC,AUCTime30$Model,AUCTime30$FoldTime, p.adjust="bonferroni")
+
+AUCTimeRF<-AUCTime[Model=="RF"]
+AUCTimeRF$Days_before<-factor(AUCTimeRF$Days_before)
+AUCTimeRF$FoldTime<-factor(paste(AUCTimeRF$folds,AUCTimeRF$times))
+friedman.test(AUCTimeRF$AUC,AUCTimeRF$Days_before,AUCTimeRF$FoldTime)
+posthoc.friedman.conover.test(AUCTimeRF$AUC,AUCTimeRF$Days_before,AUCTimeRF$FoldTime, p.adjust="bonferroni")
+
+```
+
+#### ANOVA
+```{r time.model,warning=F,message=F}
 aov60<-summary(aov(AUC~Model,data=AUCTime[Days_before=="60"]))
 knitr::kable(aov60[[1]])
 Tukey60<-TukeyHSD(aov(AUC~Model,data=AUCTime[Days_before=="60"]))
@@ -321,6 +363,7 @@ TukeyRF<-TukeyHSD(aov(AUC~Days_before,data=AUCTime[Model=="RF"]))
 knitr::kable(TukeyRF$Days_before)
 
 ```
+
 
 ### Contact
 

@@ -241,8 +241,6 @@ rf_perf_90$Days_before<-"90"
 
 ``` r
 svm_perf_90<-NULL
-svm_tree_90<-NULL
-svm_imp_90<-NULL
 for (k in 1:n_times){
   for (i in 1:n_folds){
     svm_temp_com<-svm_tune_eval(training_90,test_90,i,k,seed,trc)
@@ -273,6 +271,41 @@ knitr::kable(AUCDF)
 | RF    | 90           |    150|  0.746|  0.0006|  0.9662698|  0.4959350|
 | SVM   | 90           |    150|  0.645|  0.0012|  0.9430894|  0.0609756|
 
+### Friedman's test
+
+``` r
+AUC90<-AUC[Days_before=="90"]
+AUC90$Model<-factor(AUC90$Model)
+AUC90$FoldTime<-factor(paste(AUC90$folds,AUC90$times))
+friedman.test(AUC90$AUC,AUC90$Model,AUC90$FoldTime)
+```
+
+    ## 
+    ##  Friedman rank sum test
+    ## 
+    ## data:  AUC90$AUC, AUC90$Model and AUC90$FoldTime
+    ## Friedman chi-squared = 144.18, df = 3, p-value <
+    ## 0.00000000000000022
+
+``` r
+posthoc.friedman.conover.test(AUC90$AUC,AUC90$Model,AUC90$FoldTime, p.adjust="bonferroni")
+```
+
+    ## 
+    ##  Pairwise comparisons using Conover's test for a two-way 
+    ##                     balanced complete block design 
+    ## 
+    ## data:  AUC90$AUC , AUC90$Model and AUC90$FoldTime 
+    ## 
+    ##     GLM                 NB                  RF                 
+    ## NB  <0.0000000000000002 -                   -                  
+    ## RF  <0.0000000000000002 <0.0000000000000002 -                  
+    ## SVM <0.0000000000000002 <0.0000000000000002 <0.0000000000000002
+    ## 
+    ## P value adjustment method: bonferroni
+
+### ANOVA
+
 ``` r
 aov90<-summary(aov(AUC~Model,data=AUC[Days_before=="90"]))
 knitr::kable(aov90[[1]])
@@ -296,6 +329,8 @@ knitr::kable(Tukey90$Model)
 | RF-NB   |   0.0987082|   0.0619639|   0.1354524|  0.0000000|
 | SVM-NB  |  -0.0029353|  -0.0396795|   0.0338089|  0.9969146|
 | SVM-RF  |  -0.1016435|  -0.1383877|  -0.0648993|  0.0000000|
+
+### Sensitivity and Specificity
 
 ``` r
 rf_sen_75 <- rf_perf_90[sen>=0.70 & spe>0][order(sen)][, .SD[1], by=.(folds,times)]
@@ -497,7 +532,7 @@ for (k in 1:n_times){
 rf_perf_30$Days_before<-"30"
 ```
 
-#### Compare the pperformance of the 90-day, 60-day, and 30-day models
+#### Compare the performance of the 90-day, 60-day, and 30-day models
 
 ``` r
 AUCTime <- rbind(glm_perf_90,nb_perf_90,rf_perf_90,
@@ -521,6 +556,99 @@ knitr::kable(AUCDFTime)
 | RF    | 30           |    150|  0.783|  0.0008|
 | RF    | 60           |    150|  0.797|  0.0005|
 | RF    | 90           |    150|  0.746|  0.0006|
+
+#### Friedman's test
+
+``` r
+AUCTime60<-AUCTime[Days_before=="60"]
+AUCTime60$Model<-factor(AUCTime60$Model)
+AUCTime60$FoldTime<-factor(paste(AUCTime60$folds,AUCTime60$times))
+friedman.test(AUCTime60$AUC,AUCTime60$Model,AUCTime60$FoldTime)
+```
+
+    ## 
+    ##  Friedman rank sum test
+    ## 
+    ## data:  AUCTime60$AUC, AUCTime60$Model and AUCTime60$FoldTime
+    ## Friedman chi-squared = 143.11, df = 2, p-value <
+    ## 0.00000000000000022
+
+``` r
+posthoc.friedman.conover.test(AUCTime60$AUC,AUCTime60$Model,AUCTime60$FoldTime, p.adjust="bonferroni")
+```
+
+    ## 
+    ##  Pairwise comparisons using Conover's test for a two-way 
+    ##                     balanced complete block design 
+    ## 
+    ## data:  AUCTime60$AUC , AUCTime60$Model and AUCTime60$FoldTime 
+    ## 
+    ##    GLM                 NB                 
+    ## NB <0.0000000000000002 -                  
+    ## RF <0.0000000000000002 <0.0000000000000002
+    ## 
+    ## P value adjustment method: bonferroni
+
+``` r
+AUCTime30<-AUCTime[Days_before=="30"]
+AUCTime30$Model<-factor(AUCTime30$Model)
+AUCTime30$FoldTime<-factor(paste(AUCTime30$folds,AUCTime30$times))
+friedman.test(AUCTime30$AUC,AUCTime30$Model,AUCTime30$FoldTime)
+```
+
+    ## 
+    ##  Friedman rank sum test
+    ## 
+    ## data:  AUCTime30$AUC, AUCTime30$Model and AUCTime30$FoldTime
+    ## Friedman chi-squared = 143.8, df = 2, p-value <
+    ## 0.00000000000000022
+
+``` r
+posthoc.friedman.conover.test(AUCTime30$AUC,AUCTime30$Model,AUCTime30$FoldTime, p.adjust="bonferroni")
+```
+
+    ## 
+    ##  Pairwise comparisons using Conover's test for a two-way 
+    ##                     balanced complete block design 
+    ## 
+    ## data:  AUCTime30$AUC , AUCTime30$Model and AUCTime30$FoldTime 
+    ## 
+    ##    GLM                 NB                 
+    ## NB <0.0000000000000002 -                  
+    ## RF <0.0000000000000002 <0.0000000000000002
+    ## 
+    ## P value adjustment method: bonferroni
+
+``` r
+AUCTimeRF<-AUCTime[Model=="RF"]
+AUCTimeRF$Days_before<-factor(AUCTimeRF$Days_before)
+AUCTimeRF$FoldTime<-factor(paste(AUCTimeRF$folds,AUCTimeRF$times))
+friedman.test(AUCTimeRF$AUC,AUCTimeRF$Days_before,AUCTimeRF$FoldTime)
+```
+
+    ## 
+    ##  Friedman rank sum test
+    ## 
+    ## data:  AUCTimeRF$AUC, AUCTimeRF$Days_before and AUCTimeRF$FoldTime
+    ## Friedman chi-squared = 46.22, df = 2, p-value = 0.00000000009191
+
+``` r
+posthoc.friedman.conover.test(AUCTimeRF$AUC,AUCTimeRF$Days_before,AUCTimeRF$FoldTime, p.adjust="bonferroni")
+```
+
+    ## 
+    ##  Pairwise comparisons using Conover's test for a two-way 
+    ##                     balanced complete block design 
+    ## 
+    ## data:  AUCTimeRF$AUC , AUCTimeRF$Days_before and AUCTimeRF$FoldTime 
+    ## 
+    ##    30                  60                 
+    ## 60 <0.0000000000000002 -                  
+    ## 90 <0.0000000000000002 <0.0000000000000002
+    ## 
+    ## P value adjustment method: bonferroni
+
+#### ANOVA
 
 ``` r
 aov60<-summary(aov(AUC~Model,data=AUCTime[Days_before=="60"]))
