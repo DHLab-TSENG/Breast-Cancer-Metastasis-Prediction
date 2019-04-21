@@ -165,7 +165,9 @@ AUC <- rbind(glm_perf_90,nb_perf_90,rf_perf_90,svm_perf_90) %>% dplyr::select(Mo
 
 AUCDF<-AUC %>% group_by(Model,Days_before) %>% 
   summarise(Count=n(),Mean=round(mean(AUC),digit=3),
-            SE=round(sd(AUC)/n(),digit=4),Max=max(AUC),Min=min(AUC))
+            Median=round(median(AUC),digit=3),
+            SE=round(sd(AUC)/n(),digit=4),
+            IQR=IQR(AUC),Max=max(AUC),Min=min(AUC))
 knitr::kable(AUCDF)
 
 ```
@@ -173,10 +175,19 @@ knitr::kable(AUCDF)
 ### Friedman's test
 ```{r Frei90}
 AUC90<-AUC[Days_before=="90"]
+shapiro.test(AUC90$AUC)
 AUC90$Model<-factor(AUC90$Model)
 AUC90$FoldTime<-factor(paste(AUC90$folds,AUC90$times))
 friedman.test(AUC90$AUC,AUC90$Model,AUC90$FoldTime)
 posthoc.friedman.conover.test(AUC90$AUC,AUC90$Model,AUC90$FoldTime, p.adjust="bonferroni")
+posthoc.kruskal.conover.test(AUC90$AUC,AUC90$Model,p.adjust="bonferroni")
+
+```
+
+### repeated ANOVA
+```{r rANOVA90}
+summary(aov(AUC~Model + Error(FoldTime/Model), data=AUC90))
+with(AUC90, pairwise.t.test(AUC, Model, paired = TRUE, p.adjust.method = 'bonferroni'))
 ```
 
 ### ANOVA
@@ -186,6 +197,7 @@ aov90<-summary(aov(AUC~Model,data=AUC[Days_before=="90"]))
 knitr::kable(aov90[[1]])
 Tukey90<-TukeyHSD(aov(AUC~Model,data=AUC[Days_before=="90"]))
 knitr::kable(Tukey90$Model)
+
 ```
 
 ### Sensitivity and Specificity
@@ -320,7 +332,8 @@ AUCTime <- rbind(glm_perf_90,nb_perf_90,rf_perf_90,
   dplyr::select(Model,Days_before,folds,times,AUC) %>% unique()
 AUCDFTime<-AUCTime %>% group_by(Model,Days_before) %>% 
   summarise(Count=n(),Mean=round(mean(AUC),digit=3),
-            SE=round(sd(AUC)/n(),digit=4))
+            Median=round(median(AUC),digit=3),
+            SE=round(sd(AUC)/n(),digit=4),IQR=IQR(AUC))
 knitr::kable(AUCDFTime)
 ```
 
@@ -339,11 +352,18 @@ friedman.test(AUCTime30$AUC,AUCTime30$Model,AUCTime30$FoldTime)
 posthoc.friedman.conover.test(AUCTime30$AUC,AUCTime30$Model,AUCTime30$FoldTime, p.adjust="bonferroni")
 
 AUCTimeRF<-AUCTime[Model=="RF"]
+shapiro.test(AUCTimeRF$AUC)
 AUCTimeRF$Days_before<-factor(AUCTimeRF$Days_before)
 AUCTimeRF$FoldTime<-factor(paste(AUCTimeRF$folds,AUCTimeRF$times))
 friedman.test(AUCTimeRF$AUC,AUCTimeRF$Days_before,AUCTimeRF$FoldTime)
 posthoc.friedman.conover.test(AUCTimeRF$AUC,AUCTimeRF$Days_before,AUCTimeRF$FoldTime, p.adjust="bonferroni")
+posthoc.kruskal.conover.test(AUCTimeRF$AUC,AUCTimeRF$Days_before, p.adjust="bonferroni")
+```
 
+### repeated ANOVA
+```{r time.model.anova}
+summary(aov(AUC~Days_before + Error(FoldTime/Days_before), data=AUCTimeRF))
+with(AUCTimeRF, pairwise.t.test(AUC, Days_before, paired = TRUE, p.adjust.method = 'bonferroni'))
 ```
 
 #### ANOVA

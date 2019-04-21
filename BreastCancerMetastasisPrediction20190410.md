@@ -260,21 +260,33 @@ AUC <- rbind(glm_perf_90,nb_perf_90,rf_perf_90,svm_perf_90) %>% dplyr::select(Mo
 
 AUCDF<-AUC %>% group_by(Model,Days_before) %>% 
   summarise(Count=n(),Mean=round(mean(AUC),digit=3),
-            SE=round(sd(AUC)/n(),digit=4),Max=max(AUC),Min=min(AUC))
+            Median=round(median(AUC),digit=3),
+            SE=round(sd(AUC)/n(),digit=4),
+            IQR=IQR(AUC),Max=max(AUC),Min=min(AUC))
 knitr::kable(AUCDF)
 ```
 
-| Model | Days\_before |  Count|   Mean|      SE|        Max|        Min|
-|:------|:-------------|------:|------:|-------:|----------:|----------:|
-| GLM   | 90           |    150|  0.581|  0.0006|  0.8095238|  0.2670068|
-| NB    | 90           |    150|  0.648|  0.0007|  0.8775510|  0.3333333|
-| RF    | 90           |    150|  0.746|  0.0006|  0.9662698|  0.4959350|
-| SVM   | 90           |    150|  0.645|  0.0012|  0.9430894|  0.0609756|
+| Model | Days\_before |  Count|   Mean|  Median|      SE|        IQR|        Max|        Min|
+|:------|:-------------|------:|------:|-------:|-------:|----------:|----------:|----------:|
+| GLM   | 90           |    150|  0.581|   0.591|  0.0006|  0.1205616|  0.8095238|  0.2670068|
+| NB    | 90           |    150|  0.648|   0.663|  0.0007|  0.1124869|  0.8775510|  0.3333333|
+| RF    | 90           |    150|  0.746|   0.756|  0.0006|  0.1402076|  0.9662698|  0.4959350|
+| SVM   | 90           |    150|  0.645|   0.687|  0.0012|  0.1013322|  0.9430894|  0.0609756|
 
 ### Friedman's test
 
 ``` r
 AUC90<-AUC[Days_before=="90"]
+shapiro.test(AUC90$AUC)
+```
+
+    ## 
+    ##  Shapiro-Wilk normality test
+    ## 
+    ## data:  AUC90$AUC
+    ## W = 0.95397, p-value = 0.0000000000009702
+
+``` r
 AUC90$Model<-factor(AUC90$Model)
 AUC90$FoldTime<-factor(paste(AUC90$folds,AUC90$times))
 friedman.test(AUC90$AUC,AUC90$Model,AUC90$FoldTime)
@@ -301,6 +313,60 @@ posthoc.friedman.conover.test(AUC90$AUC,AUC90$Model,AUC90$FoldTime, p.adjust="bo
     ## NB  <0.0000000000000002 -                   -                  
     ## RF  <0.0000000000000002 <0.0000000000000002 -                  
     ## SVM <0.0000000000000002 <0.0000000000000002 <0.0000000000000002
+    ## 
+    ## P value adjustment method: bonferroni
+
+``` r
+posthoc.kruskal.conover.test(AUC90$AUC,AUC90$Model,p.adjust="bonferroni")
+```
+
+    ## Warning in posthoc.kruskal.conover.test.default(AUC90$AUC, AUC90$Model, :
+    ## Ties are present. Quantiles were corrected for ties.
+
+    ## 
+    ##  Pairwise comparisons using Conover's-test for multiple  
+    ##                          comparisons of independent samples 
+    ## 
+    ## data:  AUC90$AUC and AUC90$Model 
+    ## 
+    ##     GLM                  NB                RF               
+    ## NB  0.000000010830415    -                 -                
+    ## RF  < 0.0000000000000002 0.000000000000011 -                
+    ## SVM 0.000000000000027    0.32              0.000000005444884
+    ## 
+    ## P value adjustment method: bonferroni
+
+### repeated ANOVA
+
+``` r
+summary(aov(AUC~Model + Error(FoldTime/Model), data=AUC90))
+```
+
+    ## 
+    ## Error: FoldTime
+    ##            Df Sum Sq Mean Sq F value Pr(>F)
+    ## Residuals 149  3.284 0.02204               
+    ## 
+    ## Error: FoldTime:Model
+    ##            Df Sum Sq Mean Sq F value              Pr(>F)    
+    ## Model       3  2.110  0.7034   54.13 <0.0000000000000002 ***
+    ## Residuals 447  5.809  0.0130                                
+    ## ---
+    ## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+
+``` r
+with(AUC90, pairwise.t.test(AUC, Model, paired = TRUE, p.adjust.method = 'bonferroni'))
+```
+
+    ## 
+    ##  Pairwise comparisons using paired t tests 
+    ## 
+    ## data:  AUC and Model 
+    ## 
+    ##     GLM                  NB                   RF           
+    ## NB  0.00000014671        -                    -            
+    ## RF  < 0.0000000000000002 < 0.0000000000000002 -            
+    ## SVM 0.001                1.000                0.00000000085
     ## 
     ## P value adjustment method: bonferroni
 
@@ -541,21 +607,22 @@ AUCTime <- rbind(glm_perf_90,nb_perf_90,rf_perf_90,
   dplyr::select(Model,Days_before,folds,times,AUC) %>% unique()
 AUCDFTime<-AUCTime %>% group_by(Model,Days_before) %>% 
   summarise(Count=n(),Mean=round(mean(AUC),digit=3),
-            SE=round(sd(AUC)/n(),digit=4))
+            Median=round(median(AUC),digit=3),
+            SE=round(sd(AUC)/n(),digit=4),IQR=IQR(AUC))
 knitr::kable(AUCDFTime)
 ```
 
-| Model | Days\_before |  Count|   Mean|      SE|
-|:------|:-------------|------:|------:|-------:|
-| GLM   | 30           |    150|  0.608|  0.0010|
-| GLM   | 60           |    150|  0.629|  0.0007|
-| GLM   | 90           |    150|  0.581|  0.0006|
-| NB    | 30           |    150|  0.736|  0.0008|
-| NB    | 60           |    150|  0.736|  0.0009|
-| NB    | 90           |    150|  0.648|  0.0007|
-| RF    | 30           |    150|  0.783|  0.0008|
-| RF    | 60           |    150|  0.797|  0.0005|
-| RF    | 90           |    150|  0.746|  0.0006|
+| Model | Days\_before |  Count|   Mean|  Median|      SE|        IQR|
+|:------|:-------------|------:|------:|-------:|-------:|----------:|
+| GLM   | 30           |    150|  0.608|   0.605|  0.0010|  0.2471068|
+| GLM   | 60           |    150|  0.629|   0.628|  0.0007|  0.1317820|
+| GLM   | 90           |    150|  0.581|   0.591|  0.0006|  0.1205616|
+| NB    | 30           |    150|  0.736|   0.723|  0.0008|  0.1280592|
+| NB    | 60           |    150|  0.736|   0.782|  0.0009|  0.1288265|
+| NB    | 90           |    150|  0.648|   0.663|  0.0007|  0.1124869|
+| RF    | 30           |    150|  0.783|   0.774|  0.0008|  0.1749938|
+| RF    | 60           |    150|  0.797|   0.798|  0.0005|  0.1032126|
+| RF    | 90           |    150|  0.746|   0.756|  0.0006|  0.1402076|
 
 #### Friedman's test
 
@@ -621,6 +688,16 @@ posthoc.friedman.conover.test(AUCTime30$AUC,AUCTime30$Model,AUCTime30$FoldTime, 
 
 ``` r
 AUCTimeRF<-AUCTime[Model=="RF"]
+shapiro.test(AUCTimeRF$AUC)
+```
+
+    ## 
+    ##  Shapiro-Wilk normality test
+    ## 
+    ## data:  AUCTimeRF$AUC
+    ## W = 0.9871, p-value = 0.0005122
+
+``` r
 AUCTimeRF$Days_before<-factor(AUCTimeRF$Days_before)
 AUCTimeRF$FoldTime<-factor(paste(AUCTimeRF$folds,AUCTimeRF$times))
 friedman.test(AUCTimeRF$AUC,AUCTimeRF$Days_before,AUCTimeRF$FoldTime)
@@ -645,6 +722,58 @@ posthoc.friedman.conover.test(AUCTimeRF$AUC,AUCTimeRF$Days_before,AUCTimeRF$Fold
     ##    30                  60                 
     ## 60 <0.0000000000000002 -                  
     ## 90 <0.0000000000000002 <0.0000000000000002
+    ## 
+    ## P value adjustment method: bonferroni
+
+``` r
+posthoc.kruskal.conover.test(AUCTimeRF$AUC,AUCTimeRF$Days_before, p.adjust="bonferroni")
+```
+
+    ## Warning in posthoc.kruskal.conover.test.default(AUCTimeRF$AUC, AUCTimeRF
+    ## $Days_before, : Ties are present. Quantiles were corrected for ties.
+
+    ## 
+    ##  Pairwise comparisons using Conover's-test for multiple  
+    ##                          comparisons of independent samples 
+    ## 
+    ## data:  AUCTimeRF$AUC and AUCTimeRF$Days_before 
+    ## 
+    ##    30     60      
+    ## 60 1.0000 -       
+    ## 90 0.0031 0.000096
+    ## 
+    ## P value adjustment method: bonferroni
+
+### repeated ANOVA
+
+``` r
+summary(aov(AUC~Days_before + Error(FoldTime/Days_before), data=AUCTimeRF))
+```
+
+    ## 
+    ## Error: FoldTime
+    ##            Df Sum Sq  Mean Sq F value Pr(>F)
+    ## Residuals 149  1.453 0.009754               
+    ## 
+    ## Error: FoldTime:Days_before
+    ##              Df Sum Sq Mean Sq F value   Pr(>F)    
+    ## Days_before   2 0.2025 0.10124   11.03 0.000024 ***
+    ## Residuals   298 2.7364 0.00918                     
+    ## ---
+    ## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+
+``` r
+with(AUCTimeRF, pairwise.t.test(AUC, Days_before, paired = TRUE, p.adjust.method = 'bonferroni'))
+```
+
+    ## 
+    ##  Pairwise comparisons using paired t tests 
+    ## 
+    ## data:  AUC and Days_before 
+    ## 
+    ##    30    60                 
+    ## 60 0.804 -                  
+    ## 90 0.029 <0.0000000000000002
     ## 
     ## P value adjustment method: bonferroni
 
