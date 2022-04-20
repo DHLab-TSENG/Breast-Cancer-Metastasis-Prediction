@@ -844,4 +844,4 @@ knitr::kable(TukeyRF$Days_before)
 
 ### Contact
 
-Please feel free to contact `yjtseng [at] mail.cgu.edu.tw` or **open an issue on GitHub** if you have any questions.
+Please feel free to contact `yjtseng [at] nycu.edu.tw` or **open an issue on GitHub** if you have any questions.
